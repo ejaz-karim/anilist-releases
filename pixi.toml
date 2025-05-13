@@ -1,0 +1,11 @@
+[workspace]
+authors = ["ejaz-karim <78738965+ejaz-karim@users.noreply.github.com>"]
+channels = ["conda-forge"]
+name = "anilist-releases"
+platforms = ["win-64"]
+version = "0.1.0"
+
+[tasks]
+
+[dependencies]
+python = ">=3.13.3,<3.14"
