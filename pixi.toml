@@ -9,3 +9,4 @@ version = "0.1.0"
 
 [dependencies]
 python = ">=3.13.3,<3.14"
+scrapy = ">=2.13.0,<3"
