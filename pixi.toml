@@ -2,7 +2,7 @@
 authors = ["ejaz-karim <78738965+ejaz-karim@users.noreply.github.com>"]
 channels = ["conda-forge"]
 name = "anilist-releases"
-platforms = ["win-64"]
+platforms = ["win-64", "linux-64"]
 version = "0.1.0"
 
 [tasks]
