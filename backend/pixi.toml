@@ -1,7 +1,7 @@
 [workspace]
 authors = ["ejaz-karim <78738965+ejaz-karim@users.noreply.github.com>"]
 channels = ["conda-forge"]
-name = "anilist-releases"
+name = "backend"
 platforms = ["win-64", "linux-64"]
 version = "0.1.0"
 
@@ -10,4 +10,3 @@ version = "0.1.0"
 [dependencies]
 python = ">=3.13.3,<3.14"
 requests = ">=2.32.3,<3"
-beautifulsoup4 = ">=4.13.4,<5"
