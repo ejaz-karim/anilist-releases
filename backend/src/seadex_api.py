@@ -20,21 +20,43 @@ class SeadexApi:
 
         for entry in trs:
             tracker = entry.get("tracker")
-            release_group = entry["releaseGroup"]
+            release_group = entry.get("releaseGroup")
+            url = entry.get("url")
 
-            print(tracker)
+            files = entry.get("files")
+
+            for file in files:
+                name = file.get("name")
+                file_size = self.format_file_size(file.get("length"))
+
+
+
+            if entry.get("infoHash") == "<redacted>":
+                private_tracker = True
+            else:
+                private_tracker = False
+
+
 
 
 
         # release = data["items"][0]["expand"]["trs"][0]["releaseGroup"]
        
 
+    def format_file_size(self, bytes):
+        megabytes = bytes / (1024 ** 2)
+        gigabytes = bytes / (1024 ** 3)
+
+        if gigabytes >= 1:
+            return f"{round(gigabytes, 1)}" + " GiB"
+        else:
+            return f"{round(megabytes, 1)}" + " MiB"
 
 
 
 
 if __name__ == "__main__":
-    print(SeadexApi().get_release_data(18897))
+    # print(SeadexApi().get_release_data(18897))
     SeadexApi().get_release_data(18897)
 
 
