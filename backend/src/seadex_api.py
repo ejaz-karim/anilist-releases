@@ -9,13 +9,16 @@ class SeadexApi:
         response.raise_for_status()
 
         data = response.json()
-        items = data["items"][0]
+
+        items = data.get("items")
+        items = items[0] if items else None
 
         comparison = items.get("comparison")
         notes = items.get("notes")
         theoretical_best = items.get("theoreticalBest")
 
-        trs = items["expand"]["trs"]
+        trs = items.get("expand")
+        trs = trs.get("trs")
 
         for entry in trs:
             tracker = entry.get("tracker")
@@ -26,10 +29,17 @@ class SeadexApi:
 
             files = entry.get("files")
             total_file_size = 0
+
+            episode_list = []
+
             for file in files:
                 name = file.get("name")
                 file_size_format = self.format_file_size(file.get("length"))
                 total_file_size += file.get("length")
+
+                episode_list.append({"name": name, "size": file_size_format})
+
+            # print(episode_list)
 
             total_file_size_format = self.format_file_size(total_file_size)
 
@@ -37,10 +47,6 @@ class SeadexApi:
                 private_tracker = True
             else:
                 private_tracker = False
-
-            
-
-
 
     def format_file_size(self, bytes):
         megabytes = bytes / (1024**2)
