@@ -9,7 +9,7 @@ class SeadexApi:
         response.raise_for_status()
 
         data = response.json()
-        items = data.get["items"][0]
+        items = data["items"][0]
 
         comparison = items.get("comparison")
         notes = items.get("notes")
@@ -25,15 +25,20 @@ class SeadexApi:
             is_best = entry.get("isBest")
 
             files = entry.get("files")
-
+            total_file_size = 0
             for file in files:
                 name = file.get("name")
-                file_size = self.format_file_size(file.get("length"))
+                file_size_format = self.format_file_size(file.get("length"))
+                total_file_size += file.get("length")
+
+            total_file_size_format = self.format_file_size(total_file_size)
 
             if entry.get("infoHash") == "<redacted>":
                 private_tracker = True
             else:
                 private_tracker = False
+
+            
 
 
 
