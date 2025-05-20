@@ -17,6 +17,13 @@ class SeadexApi:
         notes = items.get("notes")
         theoretical_best = items.get("theoreticalBest")
 
+        release_dict = {
+            "comparison": comparison,
+            "notes": notes,
+            "theoretical best": theoretical_best,
+            "releases": [],
+        }
+
         trs = items.get("expand")
         trs = trs.get("trs")
 
@@ -35,11 +42,9 @@ class SeadexApi:
             for file in files:
                 name = file.get("name")
                 file_size_format = self.format_file_size(file.get("length"))
-                total_file_size += file.get("length")
+                total_file_size += file.get("length", 0)
 
                 episode_list.append({"name": name, "size": file_size_format})
-
-            # print(episode_list)
 
             total_file_size_format = self.format_file_size(total_file_size)
 
@@ -47,6 +52,21 @@ class SeadexApi:
                 private_tracker = True
             else:
                 private_tracker = False
+
+            entry_dict = {
+                "tracker": tracker,
+                "release group": release_group,
+                "url": url,
+                "dual audio": dual_audio,
+                "is best": is_best,
+                "private tracker": private_tracker,
+                "file size": total_file_size_format,
+                "episode list": episode_list,
+            }
+
+            release_dict["releases"].append(entry_dict)
+
+        return release_dict
 
     def format_file_size(self, bytes):
         megabytes = bytes / (1024**2)
@@ -59,4 +79,4 @@ class SeadexApi:
 
 
 if __name__ == "__main__":
-    SeadexApi().get_release_data(18897)
+    print(SeadexApi().get_release_data(18897))
