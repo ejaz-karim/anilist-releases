@@ -18,7 +18,22 @@ class NyaaScraper:
         magnet = magnet.get("href")
         metadata["magnet"] = magnet
 
-        return metadata
+        rows = soup.select("div.panel-body .row")
+        rows_string = ""
+        for row in rows:
+            rows_string += (row.text.strip() + "\n")
+        rows_string = "\n".join(line.strip() for line in rows_string.splitlines() if line.strip())
+
+
+        
+
+
+
+        
+
+        print(rows_string)
+
+        # return metadata
 
 
 if __name__ == "__main__":
