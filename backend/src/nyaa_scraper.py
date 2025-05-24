@@ -14,6 +14,10 @@ class NyaaScraper:
         release_name = release_name.text.strip()
         metadata["release name"] = release_name
 
+        magnet = soup.select_one("div.panel-footer.clearfix a[href^='magnet']")
+        magnet = magnet.get("href")
+        metadata["magnet"] = magnet
+
         return metadata
 
 
