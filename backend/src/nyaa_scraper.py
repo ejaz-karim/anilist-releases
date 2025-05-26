@@ -18,22 +18,37 @@ class NyaaScraper:
         magnet = magnet.get("href")
         metadata["magnet"] = magnet
 
-        rows = soup.select("div.panel-body .row")
-        rows_string = ""
-        for row in rows:
-            rows_string += (row.text.strip() + "\n")
-        rows_string = "\n".join(line.strip() for line in rows_string.splitlines() if line.strip())
+        rows_list = []
+        for row in soup.select("div.panel-body .row"):
+            for line in row.text.strip().splitlines():
+                if line.strip():
+                    rows_list.append(line.strip())
 
+        for i, element in enumerate(rows_list):
+            match element:
+                case "Category:":
+                    if i + 1 < len(rows_list):
+                        metadata["category"] = rows_list[i + 1]
+                case "Date:":
+                    if i + 1 < len(rows_list):
+                        metadata["date"] = rows_list[i + 1]
+                case "Submitter:":
+                    if i + 1 < len(rows_list):
+                        metadata["submitter"] = rows_list[i + 1]
+                case "Seeders:":
+                    if i + 1 < len(rows_list):
+                        metadata["seeders"] = rows_list[i + 1]
+                case "Leechers:":
+                    if i + 1 < len(rows_list):
+                        metadata["leechers"] = rows_list[i + 1]
+                case "File size:":
+                    if i + 1 < len(rows_list):
+                        metadata["file size"] = rows_list[i + 1]
+                case "Completed:":
+                    if i + 1 < len(rows_list):
+                        metadata["completed"] = rows_list[i + 1]
 
-        
-
-
-
-        
-
-        print(rows_string)
-
-        # return metadata
+        return metadata
 
 
 if __name__ == "__main__":
