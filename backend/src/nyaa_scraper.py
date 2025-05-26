@@ -48,7 +48,13 @@ class NyaaScraper:
                     if i + 1 < len(rows_list):
                         metadata["completed"] = rows_list[i + 1]
 
-        return metadata
+
+        files = soup.select("div.torrent-file-list.panel-body")
+        for file in files:
+            print(file)
+
+
+
 
 
 if __name__ == "__main__":
