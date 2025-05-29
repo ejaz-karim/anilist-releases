@@ -23,7 +23,6 @@ class NyaaScraper:
             for line in row.text.strip().splitlines():
                 if line.strip():
                     rows_list.append(line.strip())
-
         for i, element in enumerate(rows_list):
             match element:
                 case "Category:":
@@ -48,13 +47,13 @@ class NyaaScraper:
                     if i + 1 < len(rows_list):
                         metadata["completed"] = rows_list[i + 1]
 
+        files = soup.select_one("div.torrent-file-list.panel-body")
+        metadata["files"] = self.format_files(files)
 
-        files = soup.select("div.torrent-file-list.panel-body")
-        for file in files:
-            print(file)
+        # return metadata
 
-
-
+    def format_files(self, files):
+        file_list = []
 
 
 if __name__ == "__main__":
