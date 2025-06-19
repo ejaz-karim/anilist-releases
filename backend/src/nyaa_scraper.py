@@ -50,11 +50,38 @@ class NyaaScraper:
         files = soup.select_one("div.torrent-file-list.panel-body")
         metadata["files"] = self.format_files(files)
 
-        # return metadata
+        return metadata
 
     def format_files(self, files):
-        file_list = []
+        items = []
+
+        if files.name == "div":
+            files = files.find("ul")
+            if not files:
+                return items
+
+        for list_item in files.find_all("li", recursive=False):
+            folder = list_item.find("a", class_="folder")
+            if folder:
+                folder_name = folder.get_text(strip=True)
+                nested_ul = list_item.find("ul")
+                contents = self.format_files(nested_ul) if nested_ul else []
+                items.append(
+                    {"type": "folder", "name": folder_name, "contents": contents}
+                )
+            else:
+                file_icon = list_item.find("i", class_="fa-file")
+                size_span = list_item.find("span", class_="file-size")
+                if file_icon:
+                    file_name = (
+                        file_icon.next_sibling.strip() if file_icon.next_sibling else ""
+                    )
+                    file_size = size_span.get_text(strip=True) if size_span else None
+                    items.append({"type": "file", "name": file_name, "size": file_size})
+
+        return items
 
 
 if __name__ == "__main__":
     print(NyaaScraper().get_metadata("https://nyaa.si/view/1830747"))
+    # print(NyaaScraper().get_metadata("https://nyaa.si/view/1577473"))
