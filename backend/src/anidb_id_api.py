@@ -2,7 +2,7 @@ import requests
 
 
 class AnidbIdApi:
-    def get_anidb_id(self, anilist_url):
+    def get_anidb_id(self, anilist_id):
         base_url = "https://find-my-anime.dtimur.de/api?id=9253&provider=Anilist&includeAdult=true&collectionConsent=false"
 
         base_url2 = "https://api.ani.zip/v1/mappings?anilist_id=16498"
@@ -16,6 +16,8 @@ class AnidbIdApi:
             url = anilist_url.split("://", 1)[1]
         else:
             url = anilist_url
+
+        url = url.lower()
 
         if url.endswith("/"):
             url = url[:-1]
