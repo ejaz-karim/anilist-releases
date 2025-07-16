@@ -3,13 +3,28 @@ import requests
 
 class AnidbIdApi:
     def get_anidb_id(self, anilist_id):
-        base_url = "https://find-my-anime.dtimur.de/api?id=9253&provider=Anilist&includeAdult=true&collectionConsent=false"
+        # base_url = "https://find-my-anime.dtimur.de/api?id=9253&provider=Anilist&includeAdult=true&collectionConsent=false"
 
-        base_url2 = "https://api.ani.zip/v1/mappings?anilist_id=16498"
+        find_my_anime_url = f"https://find-my-anime.dtimur.de/api?id={anilist_id}&provider=Anilist&includeAdult=true&collectionConsent=false"
+        fma_response = requests.get(find_my_anime_url)
+        fma_response.raise_for_status()
 
-        base_url3 = (
-            "https://zenshin-supabase-api.onrender.com/mappings?anilist_id=16498"
-        )
+        fma_data = fma_response.json()
+        fma_sources = fma_data[0].get("sources")
+
+
+        print(fma_sources)
+
+
+
+
+
+
+        # base_url2 = "https://api.ani.zip/v1/mappings?anilist_id=16498"
+
+        # base_url3 = (
+        #     "https://zenshin-supabase-api.onrender.com/mappings?anilist_id=16498"
+        # )
 
     def get_anilist_id(self, anilist_url):
         if "://" in anilist_url:
@@ -35,4 +50,4 @@ class AnidbIdApi:
 
 
 if __name__ == "__main__":
-    print(AnidbIdApi().get_anidb_id("https://anilist.co/anime/9253/SteinsGate/"))
+    print(AnidbIdApi().get_anidb_id("9253"))
