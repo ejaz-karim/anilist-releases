@@ -3,24 +3,24 @@ import requests
 
 class AnidbIdApi:
     def get_anidb_id(self, anilist_id):
-        # base_url = "https://find-my-anime.dtimur.de/api?id=9253&provider=Anilist&includeAdult=true&collectionConsent=false"
-
         find_my_anime_url = f"https://find-my-anime.dtimur.de/api?id={anilist_id}&provider=Anilist&includeAdult=true&collectionConsent=false"
         fma_response = requests.get(find_my_anime_url)
         fma_response.raise_for_status()
-
         fma_data = fma_response.json()
-        fma_sources = fma_data[0].get("sources")
+        fma_anidb_id = fma_data[0].get("providerMapping").get("AniDB")
+
+        api_ani_url = f"https://api.ani.zip/v1/mappings?anilist_id={anilist_id}"
+        api_ani_response = requests.get(api_ani_url)
+        api_ani_response.raise_for_status()
+        api_ani_data = api_ani_response.json()
+        api_ani_anidb_id = api_ani_data.get("anidb_id")
+
+        print(fma_anidb_id)
+        print(api_ani_anidb_id)
+        
 
 
-        print(fma_sources)
 
-
-
-
-
-
-        # base_url2 = "https://api.ani.zip/v1/mappings?anilist_id=16498"
 
         # base_url3 = (
         #     "https://zenshin-supabase-api.onrender.com/mappings?anilist_id=16498"
