@@ -3,8 +3,8 @@ import requests
 
 class AnidbIdApi:
     def get_anidb_id(self, anilist_id):
-        find_my_anime_url = f"https://find-my-anime.dtimur.de/api?id={anilist_id}&provider=Anilist&includeAdult=true&collectionConsent=false"
-        fma_response = requests.get(find_my_anime_url)
+        find_my_anime_api_url = f"https://find-my-anime.dtimur.de/api?id={anilist_id}&provider=Anilist&includeAdult=true&collectionConsent=false"
+        fma_response = requests.get(find_my_anime_api_url)
         fma_response.raise_for_status()
         fma_data = fma_response.json()
         fma_anidb_id = fma_data[0].get("providerMapping").get("AniDB")
@@ -15,16 +15,11 @@ class AnidbIdApi:
         api_ani_data = api_ani_response.json()
         api_ani_anidb_id = api_ani_data.get("anidb_id")
 
-        print(fma_anidb_id)
-        print(api_ani_anidb_id)
-        
-
-
-
-
-        # base_url3 = (
-        #     "https://zenshin-supabase-api.onrender.com/mappings?anilist_id=16498"
-        # )
+        zenshin_api_url = f"https://zenshin-supabase-api.onrender.com/mappings?anilist_id={anilist_id}"
+        zenshin_response = requests.get(zenshin_api_url)
+        zenshin_response.raise_for_status()
+        zenshin_data = zenshin_response.json()
+        zenshin_anidb_id = zenshin_data.get("mappings").get("anidb_id")
 
     def get_anilist_id(self, anilist_url):
         if "://" in anilist_url:
