@@ -56,7 +56,10 @@ class AnidbIdApi:
                 if anime_id.isdigit():
                     return anime_id
         return None
+    
+    def get_anidb_groups(self, anidb_id):
+        pass
 
 
 if __name__ == "__main__":
-    print(AnidbIdApi().get_anidb_id("9253"))
+    print(AnidbIdApi().get_anidb_groups("7729"))
