@@ -1,4 +1,5 @@
 import requests
+from bs4 import BeautifulSoup
 
 
 class AnidbIdApi:
@@ -56,10 +57,20 @@ class AnidbIdApi:
                 if anime_id.isdigit():
                     return anime_id
         return None
-    
+
     def get_anidb_groups(self, anidb_id):
-        pass
+        anidb_url = f"https://anidb.net/anime/{anidb_id}/?showallag=1#grouplist"
+
+        headers = {
+            "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.742.100 Safari/537.36",
+            "Accept-Language": "en-US,en;q=0.9",
+        }
+
+        response = requests.get(anidb_url, headers=headers)
+        soup = BeautifulSoup(response.text, "html.parser")
+
+        print(soup)
 
 
 if __name__ == "__main__":
-    print(AnidbIdApi().get_anidb_groups("7729"))
+    AnidbIdApi().get_anidb_groups("7729")
