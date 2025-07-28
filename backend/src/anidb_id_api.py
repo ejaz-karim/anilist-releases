@@ -69,7 +69,41 @@ class AnidbIdApi:
         response = requests.get(anidb_url, headers=headers)
         soup = BeautifulSoup(response.text, "html.parser")
 
-        print(soup)
+        release_groups = soup.select_one(
+            "div.container.g_bubble > table#grouplist > tbody"
+        )
+
+        data = []
+
+        for row in release_groups.select("tr"):
+            last_update = row.select_one("td.date.lastupdate")
+            name = row.select_one("td.name.group a")
+            state = row.select_one("td.state")
+            note = row.select_one("td.note span.i_icon")
+            languages = row.select("td.icons.languages span.i_icon")
+            source = row.select_one("td.source")
+
+            if state:
+                state_text = state.get_text(strip=True).lower()
+                if state_text not in ["ongoing", "complete"]:
+                    continue
+            else:
+                continue
+
+            data.append(
+                {
+                    "last_update": last_update.get_text(strip=True)
+                    if last_update
+                    else None,
+                    "name": name.get_text(strip=True) if name else None,
+                    "state": state_text,
+                    "note": note.get("title") if note else None,
+                    "languages": [
+                        lang.get("title") for lang in languages if lang.get("title")
+                    ],
+                    "source": source.get_text(strip=True) if source else None,
+                }
+            )
 
 
 if __name__ == "__main__":
