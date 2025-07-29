@@ -76,19 +76,19 @@ class AnidbIdApi:
         data = []
 
         for row in release_groups.select("tr"):
-            last_update = row.select_one("td.date.lastupdate")
-            name = row.select_one("td.name.group a")
             state = row.select_one("td.state")
-            note = row.select_one("td.note span.i_icon")
-            languages = row.select("td.icons.languages span.i_icon")
-            source = row.select_one("td.source")
-
             if state:
                 state_text = state.get_text(strip=True).lower()
                 if state_text not in ["ongoing", "complete"]:
                     continue
             else:
                 continue
+
+            last_update = row.select_one("td.date.lastupdate")
+            name = row.select_one("td.name.group a")
+            note = row.select_one("td.note span.i_icon")
+            languages = row.select("td.icons.languages span.i_icon")
+            source = row.select_one("td.source")
 
             data.append(
                 {
@@ -104,6 +104,9 @@ class AnidbIdApi:
                     "source": source.get_text(strip=True) if source else None,
                 }
             )
+
+        for x in data:
+            print(x)
 
 
 if __name__ == "__main__":
