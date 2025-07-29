@@ -99,7 +99,12 @@ class AnidbIdApi:
                     "state": state_text,
                     "note": note.get("title") if note else None,
                     "languages": [
-                        lang.get("title") for lang in languages if lang.get("title")
+                        {
+                            "type": title.split(" | ")[0].strip(),
+                            "language": title.split(" | ")[1].split(":")[1].strip(),
+                        }
+                        for lang in languages
+                        if (title := lang.get("title"))
                     ],
                     "source": source.get_text(strip=True) if source else None,
                 }
