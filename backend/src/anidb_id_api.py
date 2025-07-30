@@ -1,4 +1,5 @@
 import requests
+import re
 from bs4 import BeautifulSoup
 
 
@@ -95,7 +96,17 @@ class AnidbIdApi:
                     "last_update": last_update.get_text(strip=True)
                     if last_update
                     else None,
-                    "name": name.get_text(strip=True) if name else None,
+                    "name": (
+                        match.group(1)
+                        if (
+                            match := re.search(
+                                r"\[([^\]]+)\]", name.get_text(strip=True)
+                            )
+                        )
+                        else name.get_text(strip=True)
+                    )
+                    if name
+                    else None,
                     "state": state_text,
                     "note": note.get("title") if note else None,
                     "languages": [
@@ -112,7 +123,8 @@ class AnidbIdApi:
 
         for x in data:
             print(x)
+        # return data
 
 
 if __name__ == "__main__":
-    AnidbIdApi().get_anidb_groups("7729")
+    AnidbIdApi().get_anidb_groups("13946")
