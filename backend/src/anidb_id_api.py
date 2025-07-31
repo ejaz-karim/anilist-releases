@@ -121,9 +121,28 @@ class AnidbIdApi:
                 }
             )
 
-        for x in data:
-            print(x)
-        # return data
+        return data
+
+    def get_animetosho_metadata(self, anidb_id=None, anidb_episode_id=None):
+        if not anidb_id and not anidb_episode_id:
+            raise ValueError("Missing anidb id or anidb episode id")
+
+        results = {}
+
+        if anidb_id:
+            url = f"https://feed.animetosho.org/json?aid={anidb_id}"
+            
+
+
+
+        if anidb_episode_id:
+            episode_url = f"https://feed.animetosho.org/json?eid={anidb_episode_id}"
+
+
+
+
+
+        return results
 
 
 if __name__ == "__main__":
