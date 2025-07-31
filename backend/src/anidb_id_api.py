@@ -131,7 +131,11 @@ class AnidbIdApi:
 
         if anidb_id:
             url = f"https://feed.animetosho.org/json?aid={anidb_id}"
+            response = requests.get(url)
+            response.raise_for_status()
+            data = response.json()
             
+
 
 
 
