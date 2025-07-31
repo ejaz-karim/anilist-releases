@@ -5,13 +5,16 @@ import requests
 class NyaaScraper:
     def get_metadata(self, url):
         metadata = {}
-        response = requests.get(url)
+        try:
+            response = requests.get(url)
+            response.raise_for_status()
+        except requests.exceptions.RequestException:
+            return None
         soup = BeautifulSoup(response.text, "html.parser")
 
-        release_name = soup.select_one(
-            "div.container > div.panel.panel-default > div.panel-heading > h3.panel-title"
-        )
-        release_name = release_name.text.strip()
+        title = soup.title.string.strip()
+        release_name = title.removesuffix(":: Nyaa").strip()
+
         metadata["release name"] = release_name
 
         magnet = soup.select_one("div.panel-footer.clearfix a[href^='magnet']")
@@ -83,5 +86,5 @@ class NyaaScraper:
 
 
 if __name__ == "__main__":
-    print(NyaaScraper().get_metadata("https://nyaa.si/view/1830747"))
+    print(NyaaScraper().get_metadata("https://nyaa.si/view/1960108"))
     # print(NyaaScraper().get_metadata("https://nyaa.si/view/1577473"))

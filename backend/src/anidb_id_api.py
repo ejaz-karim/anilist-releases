@@ -1,6 +1,7 @@
 import requests
 import re
 from bs4 import BeautifulSoup
+import nyaa_scraper
 
 
 class AnidbIdApi:
@@ -137,15 +138,21 @@ class AnidbIdApi:
 
             for entry in data:
                 link = entry.get("link")
+                nyaa_url = AnidbIdApi().get_animetosho_nyaa_url(link)
+                if nyaa_url is not None:
+                    nyaa_metadata = nyaa_scraper.NyaaScraper().get_metadata(nyaa_url)
+                else:
+                    continue
+                print(nyaa_metadata)
 
-        if anidb_episode_id:
-            url = f"https://feed.animetosho.org/json?eid={anidb_episode_id}"
-            response = requests.get(url)
-            response.raise_for_status()
-            data = response.json()
+        # if anidb_episode_id:
+        #     url = f"https://feed.animetosho.org/json?eid={anidb_episode_id}"
+        #     response = requests.get(url)
+        #     response.raise_for_status()
+        #     data = response.json()
 
-            for entry in data:
-                link = entry.get("link")
+        #     for entry in data:
+        #         link = entry.get("link")
 
         return results
 
@@ -156,13 +163,13 @@ class AnidbIdApi:
 
         nyaa_url = soup.find(
             "a", href=lambda href: href and href.startswith("https://nyaa.si/view/")
-        )["href"]
+        )
 
-        return nyaa_url
+        if nyaa_url:
+            return nyaa_url["href"]
+        else:
+            return None
 
 
 if __name__ == "__main__":
-    AnidbIdApi().get_anidb_groups("13946")
-    AnidbIdApi().get_animetosho_nyaa_url(
-        "https://animetosho.org/view/mtbb-steins-gate-s1-bd-1080p.1972196"
-    )
+    AnidbIdApi().get_animetosho_metadata(7729)
