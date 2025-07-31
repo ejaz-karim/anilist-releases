@@ -128,7 +128,7 @@ class AnidbIdApi:
         if not anidb_id and not anidb_episode_id:
             raise ValueError("Missing anidb id or anidb episode id")
 
-        results = {}
+        results = []
 
         if anidb_id:
             url = f"https://feed.animetosho.org/json?aid={anidb_id}"
@@ -143,17 +143,16 @@ class AnidbIdApi:
                     nyaa_metadata = nyaa_scraper.NyaaScraper().get_metadata(nyaa_url)
                 else:
                     continue
-                print(nyaa_metadata)
+
+                if nyaa_metadata is None:
+                    continue
+                elif int(nyaa_metadata["seeders"]) > 0:
+                    results.append(nyaa_metadata)
 
         # if anidb_episode_id:
         #     url = f"https://feed.animetosho.org/json?eid={anidb_episode_id}"
-        #     response = requests.get(url)
-        #     response.raise_for_status()
-        #     data = response.json()
 
-        #     for entry in data:
-        #         link = entry.get("link")
-
+        print(results)
         return results
 
     def get_animetosho_nyaa_url(self, url):
