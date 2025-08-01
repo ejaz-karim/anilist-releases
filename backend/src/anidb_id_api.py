@@ -136,12 +136,14 @@ class AnidbIdApi:
             response.raise_for_status()
             data = response.json()
 
+            scraper = nyaa_scraper.NyaaScraper()
+
             for entry in data:
                 info_hash = entry.get("info_hash")
 
                 if info_hash is not None:
                     nyaa_url = f"https://nyaa.si/?q={info_hash}"
-                    nyaa_metadata = nyaa_scraper.NyaaScraper().get_metadata(nyaa_url)
+                    nyaa_metadata = scraper.get_metadata(nyaa_url)
                 else:
                     continue
 
