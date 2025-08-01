@@ -137,8 +137,13 @@ class AnidbIdApi:
             data = response.json()
 
             for entry in data:
-                link = entry.get("link")
-                nyaa_url = AnidbIdApi().get_animetosho_nyaa_url(link)
+                # link = entry.get("link")
+                # nyaa_url2 = AnidbIdApi().get_animetosho_nyaa_url(link)
+
+                info_hash = entry.get("info_hash")
+
+                nyaa_url = f"https://nyaa.si/?q={info_hash}"
+
                 if nyaa_url is not None:
                     nyaa_metadata = nyaa_scraper.NyaaScraper().get_metadata(nyaa_url)
                 else:
@@ -155,9 +160,13 @@ class AnidbIdApi:
         print(results)
         return results
 
+    # rate limited
     def get_animetosho_nyaa_url(self, url):
-        response = requests.get(url)
-        response.raise_for_status()
+        try:
+            response = requests.get(url)
+            response.raise_for_status()
+        except requests.exceptions.RequestException:
+            return None
         soup = BeautifulSoup(response.text, "html.parser")
 
         nyaa_url = soup.find(

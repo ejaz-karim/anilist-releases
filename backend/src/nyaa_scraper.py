@@ -86,5 +86,5 @@ class NyaaScraper:
 
 
 if __name__ == "__main__":
-    print(NyaaScraper().get_metadata("https://nyaa.si/view/1960108"))
+    print(NyaaScraper().get_metadata("https://nyaa.si/?q=731ee136b493b904e90b179516890757f65b3f92"))
     # print(NyaaScraper().get_metadata("https://nyaa.si/view/1577473"))
