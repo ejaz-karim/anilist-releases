@@ -153,7 +153,8 @@ class AnidbIdApi:
         # if anidb_episode_id:
         #     url = f"https://feed.animetosho.org/json?eid={anidb_episode_id}"
 
-        return results
+        sorted_results = sorted(results, key=lambda x: int(x["seeders"]), reverse=True)
+        return sorted_results
 
     # rate limited
     def get_animetosho_nyaa_url(self, url):
@@ -175,4 +176,4 @@ class AnidbIdApi:
 
 
 if __name__ == "__main__":
-    AnidbIdApi().get_animetosho_metadata(7729)
+    print(AnidbIdApi().get_animetosho_metadata(7729))

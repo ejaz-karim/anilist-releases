@@ -19,6 +19,7 @@ class NyaaScraper:
 
         title = soup.title.string
         release_name = title.removesuffix(":: Nyaa").strip()
+        
         metadata["release name"] = release_name
         metadata["magnet"] = magnet
 
