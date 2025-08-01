@@ -137,14 +137,10 @@ class AnidbIdApi:
             data = response.json()
 
             for entry in data:
-                # link = entry.get("link")
-                # nyaa_url2 = AnidbIdApi().get_animetosho_nyaa_url(link)
-
                 info_hash = entry.get("info_hash")
 
-                nyaa_url = f"https://nyaa.si/?q={info_hash}"
-
-                if nyaa_url is not None:
+                if info_hash is not None:
+                    nyaa_url = f"https://nyaa.si/?q={info_hash}"
                     nyaa_metadata = nyaa_scraper.NyaaScraper().get_metadata(nyaa_url)
                 else:
                     continue
@@ -157,7 +153,6 @@ class AnidbIdApi:
         # if anidb_episode_id:
         #     url = f"https://feed.animetosho.org/json?eid={anidb_episode_id}"
 
-        print(results)
         return results
 
     # rate limited

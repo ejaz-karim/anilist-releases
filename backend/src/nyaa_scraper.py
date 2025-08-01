@@ -12,13 +12,14 @@ class NyaaScraper:
             return None
         soup = BeautifulSoup(response.text, "html.parser")
 
-        title = soup.title.string.strip()
-        release_name = title.removesuffix(":: Nyaa").strip()
-
-        metadata["release name"] = release_name
-
         magnet = soup.select_one("div.panel-footer.clearfix a[href^='magnet']")
+        if not magnet:
+            return None
         magnet = magnet.get("href")
+
+        title = soup.title.string
+        release_name = title.removesuffix(":: Nyaa").strip()
+        metadata["release name"] = release_name
         metadata["magnet"] = magnet
 
         rows_list = []
@@ -86,5 +87,9 @@ class NyaaScraper:
 
 
 if __name__ == "__main__":
-    print(NyaaScraper().get_metadata("https://nyaa.si/?q=731ee136b493b904e90b179516890757f65b3f92"))
+    print(
+        NyaaScraper().get_metadata(
+            "https://nyaa.si/?q=731ee136b493b904e90b179516890757f65b3f92"
+        )
+    )
     # print(NyaaScraper().get_metadata("https://nyaa.si/view/1577473"))
