@@ -1,7 +1,7 @@
 [workspace]
 authors = ["ejaz-karim <78738965+ejaz-karim@users.noreply.github.com>"]
 channels = ["conda-forge"]
-name = "backend"
+name = "backend-py"
 platforms = ["win-64", "linux-64"]
 version = "0.1.0"
 
