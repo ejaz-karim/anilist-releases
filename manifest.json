@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "anilist-releases",
+  "version": "0.1",
+  "description": "",
+  "permissions": ["activeTab", "scripting"],
+  "content_scripts": [
+    {
+      "matches": ["*://anilist.co/anime/*"],
+      "js": ["dist/index.js"]
+    }
+  ]
+}
