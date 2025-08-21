@@ -79,4 +79,4 @@ class SeadexApi:
 
 
 if __name__ == "__main__":
-    print(SeadexApi().get_release_data(18897))
+    print(SeadexApi().get_release_data(104276))

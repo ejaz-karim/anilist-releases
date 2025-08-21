@@ -101,9 +101,15 @@ export class SeadexApi {
     }
 }
 
+
+
 // const api = new SeadexApi();
 // api.getReleaseData(104276)
 //     .then(data => {
-//         console.log(JSON.stringify(data, null, 2));
+//         if (data) {
+//             console.log(JSON.stringify(data, null, 2));
+//         } else {
+//             console.log("No data returned");
+//         }
 //     })
-//     .catch(err => console.error(err));
+//     .catch(err => console.error("Error:", err));
