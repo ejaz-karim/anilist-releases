@@ -11,6 +11,7 @@ export type TRSEntry = {
     isBest?: boolean | null;
     infoHash?: string | null;
     files?: FileEntry[] | null;
+    tags?: string[] | null;
 };
 
 export type ReleaseData = {
@@ -25,6 +26,7 @@ export type ReleaseData = {
         "is best"?: boolean | null;
         "private tracker"?: boolean | null;
         "file size"?: string | null;
+        tags?: string[] | null;
         "episode list"?: {
             name?: string | null;
             size?: string | null;
@@ -93,6 +95,7 @@ export class SeadexApi {
                 "is best": entry.isBest ?? false,
                 "private tracker": privateTracker,
                 "file size": totalFileSizeFormat,
+                tags: entry.tags ?? null,
                 "episode list": episodeList
             });
         }
@@ -100,16 +103,3 @@ export class SeadexApi {
         return releaseDict;
     }
 }
-
-
-
-// const api = new SeadexApi();
-// api.getReleaseData(104276)
-//     .then(data => {
-//         if (data) {
-//             console.log(JSON.stringify(data, null, 2));
-//         } else {
-//             console.log("No data returned");
-//         }
-//     })
-//     .catch(err => console.error("Error:", err));

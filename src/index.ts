@@ -1,35 +1,104 @@
 import { getAnilistId } from "./utility";
 import { SeadexApi } from "./seadex_api";
-import { injectReleasesPanel } from "./inject_panel";
+import { injectReleasesPanel, ensureReleasesPanelPlacement } from "./inject_panel";
 
 const api = new SeadexApi();
-let lastPath = "";
+let inFlightId: number | null = null;
+let scheduled = 0;
+let contentObserver: MutationObserver | null = null;
 
-async function render() {
-  const anilistId = getAnilistId();
-  if (!anilistId) return;
+function isAnimePage(): boolean {
+  return document.querySelector(".page-content .media.media-anime") !== null;
+}
 
+async function tryInject() {
+  const id = getAnilistId();
+  const isAnime = isAnimePage();
+
+  // If not anime → remove any lingering panel and exit
+  if (!isAnime) {
+    document.querySelectorAll("#anilist-releases-panel").forEach(n => n.remove());
+    return;
+  }
+
+  if (!id) return;
+
+  // If an existing panel belongs to a different anime, remove it
+  const existing = document.getElementById("anilist-releases-panel") as HTMLElement | null;
+  if (existing && existing.dataset.anilistId !== String(id)) {
+    existing.remove();
+  }
+
+  // If panel already exists for this anime, just ensure it's placed correctly
+  if (document.getElementById("anilist-releases-panel")) {
+    ensureReleasesPanelPlacement(id);
+    return;
+  }
+
+  // Avoid duplicate fetches during rapid mutations
+  if (inFlightId === id) {
+    ensureReleasesPanelPlacement(id);
+    return;
+  }
+
+  inFlightId = id;
   try {
-    const data = await api.getReleaseData(anilistId);
+    const data = await api.getReleaseData(id);
     if (data) {
-      injectReleasesPanel(data);
+      injectReleasesPanel(data, id);
+      ensureReleasesPanelPlacement(id);
     }
   } catch (err) {
-    console.error("Failed to fetch Seadex data:", err);
+    console.error("Failed to inject releases:", err);
+  } finally {
+    inFlightId = null;
   }
 }
 
-function watchUrlChanges() {
-  const observer = new MutationObserver(() => {
-    if (location.pathname !== lastPath) {
-      lastPath = location.pathname;
-      render();
-    }
+function scheduleTryInject() {
+  if (scheduled) return;
+  scheduled = window.setTimeout(() => {
+    scheduled = 0;
+    tryInject();
+  }, 60);
+}
+
+function observePageContent() {
+  const target = document.querySelector(".page-content");
+  if (!target) return;
+
+  // Replace old observer with a fresh one bound to the current .page-content
+  contentObserver?.disconnect();
+
+  contentObserver = new MutationObserver(() => {
+    scheduleTryInject();
+    ensureReleasesPanelPlacement(getAnilistId());
+  });
+  contentObserver.observe(target, { childList: true, subtree: true });
+
+  // Try once immediately
+  tryInject();
+}
+
+function setupRootObserver() {
+  const root = document.getElementById("app") || document.body;
+  if (!root) return;
+
+  let rafQueued = false;
+
+  const rootObserver = new MutationObserver(() => {
+    if (rafQueued) return;
+    rafQueued = true;
+    requestAnimationFrame(() => {
+      rafQueued = false;
+      observePageContent();
+    });
   });
 
-  observer.observe(document.body, { childList: true, subtree: true });
+  rootObserver.observe(root, { childList: true, subtree: true });
+
+  observePageContent();
 }
 
 // Boot
-watchUrlChanges();
-render();
+setupRootObserver();

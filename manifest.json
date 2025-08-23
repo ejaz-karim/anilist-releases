@@ -3,11 +3,19 @@
   "name": "anilist-releases",
   "version": "0.1",
   "description": "",
-  "permissions": ["activeTab", "scripting"],
+  "permissions": [
+    "activeTab",
+    "scripting"
+  ],
   "content_scripts": [
     {
-      "matches": ["*://anilist.co/anime/*"],
-      "js": ["dist/index.js"]
+      "matches": [
+        "*://anilist.co/*"
+      ],
+      "js": [
+        "dist/index.js"
+      ],
+      "run_at": "document_idle"
     }
   ]
 }

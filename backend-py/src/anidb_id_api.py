@@ -60,6 +60,7 @@ class AnidbIdApi:
                     return anime_id
         return None
 
+    # Deprecated, use get_animetosho_metadata()
     def get_anidb_groups(self, anidb_id):
         anidb_url = f"https://anidb.net/anime/{anidb_id}/?showallag=1#grouplist"
 
@@ -158,7 +159,7 @@ class AnidbIdApi:
         sorted_results = sorted(results, key=lambda x: int(x["seeders"]), reverse=True)
         return sorted_results
 
-    # rate limited
+    # rate limited, use get_animetosho_metadata()
     def get_animetosho_nyaa_url(self, url):
         try:
             response = requests.get(url)

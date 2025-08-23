@@ -2,28 +2,70 @@ import type { ReleaseData } from "./seadex_api";
 
 const PANEL_ID = "anilist-releases-panel";
 
-function placeReleasesPanel(panelContent: HTMLElement) {
+function findAnchor(): HTMLElement | null {
+  const mediaRoot = document.querySelector<HTMLElement>(".page-content .media.media-anime");
+  if (!mediaRoot) return null;
+
+  // Prefer Reviews, otherwise Threads
+  const reviews = mediaRoot.querySelector(".reviews");
+  if (reviews) {
+    const wrap = reviews.closest<HTMLElement>(".grid-section-wrap");
+    if (wrap) return wrap;
+  }
+
+  const threads = mediaRoot.querySelector(".threads");
+  if (threads) {
+    const wrap = threads.closest<HTMLElement>(".grid-section-wrap");
+    if (wrap) return wrap;
+  }
+
+  return null;
+}
+
+function provisionalContainer(): HTMLElement | null {
+  return document.querySelector<HTMLElement>(".page-content .media.media-anime");
+}
+
+function placeReleasesPanel(panelContent: HTMLElement, anilistId: number) {
   document.querySelectorAll(`#${PANEL_ID}`).forEach(n => n.remove());
 
   const wrap = document.createElement("div");
   wrap.id = PANEL_ID;
   wrap.className = "grid-section-wrap";
+  wrap.dataset.anilistId = String(anilistId);
+  wrap.dataset.anchored = "false";
 
   const inner = document.createElement("div");
   inner.className = "section";
   inner.appendChild(panelContent);
   wrap.appendChild(inner);
 
-  const mediaRoot =
-    document.querySelector<HTMLElement>(".page-content .media.media-anime");
-  const reviewsSection = mediaRoot?.querySelector(".reviews");
-  const reviewsGridWrap = reviewsSection?.closest(".grid-section-wrap");
-
-  if (reviewsGridWrap && reviewsGridWrap.parentElement) {
-    reviewsGridWrap.insertAdjacentElement("afterend", wrap);
-  } else if (mediaRoot) {
-    mediaRoot.appendChild(wrap);
+  const anchor = findAnchor();
+  if (anchor && anchor.parentElement) {
+    anchor.insertAdjacentElement("afterend", wrap);
+    wrap.dataset.anchored = "true";
+  } else {
+    const provisional = provisionalContainer();
+    if (provisional) provisional.appendChild(wrap);
   }
+}
+
+export function ensureReleasesPanelPlacement(currentAniId: number | null) {
+  const panel = document.getElementById(PANEL_ID) as HTMLElement | null;
+  if (!panel) return;
+
+  if (currentAniId && panel.dataset.anilistId && panel.dataset.anilistId !== String(currentAniId)) return;
+
+  const anchor = findAnchor();
+  if (!anchor || !anchor.parentElement) return;
+
+  if (panel.previousElementSibling === anchor) {
+    panel.dataset.anchored = "true";
+    return;
+  }
+
+  anchor.insertAdjacentElement("afterend", panel);
+  panel.dataset.anchored = "true";
 }
 
 function linkifyAndSplitComparison(text: string): string {
@@ -47,7 +89,7 @@ function linkifyAndSplitComparison(text: string): string {
   return out.join("<br>");
 }
 
-export function injectReleasesPanel(data: ReleaseData) {
+export function injectReleasesPanel(data: ReleaseData, anilistId: number) {
   const container = document.createElement("div");
 
   // Header
@@ -56,17 +98,12 @@ export function injectReleasesPanel(data: ReleaseData) {
   header.className = "section-header";
   container.appendChild(header);
 
-  // Content wrapper (grid layout for two-by-two cards)
+  // Content wrapper
   const contentWrap = document.createElement("div");
   contentWrap.className = "content-wrap list";
-  // contentWrap.style.display = "grid";
-  // contentWrap.style.gridTemplateColumns = "repeat(auto-fill, minmax(300px, 1fr))";
-  // contentWrap.style.gap = "1rem";
   contentWrap.style.display = "flex";
   contentWrap.style.flexWrap = "wrap";
   contentWrap.style.gap = "1rem";
-
-
 
   // Combined meta box
   if (data.comparison || data.notes || data["theoretical best"]) {
@@ -74,7 +111,7 @@ export function injectReleasesPanel(data: ReleaseData) {
     meta.className = "wrap entry";
     meta.style.padding = "1rem";
     meta.style.marginBottom = "1rem";
-    meta.style.gridColumn = "1 / -1";
+    meta.style.flex = "1 1 100%";
 
     if (data.comparison) {
       const cmp = document.createElement("div");
@@ -101,18 +138,23 @@ export function injectReleasesPanel(data: ReleaseData) {
   data.releases.forEach((release) => {
     const wrap = document.createElement("div");
     wrap.className = "wrap";
+    wrap.style.flex = "1 1 300px";
+    wrap.style.minWidth = "300px";
+    wrap.style.maxWidth = "48%";
 
     const card = document.createElement("div");
     card.className = "entry";
     card.style.padding = "1rem";
 
-    const flags: string[] = [];
-    if (release["dual audio"]) flags.push("Dual Audio");
-    if (release["is best"]) flags.push("Best Release");
-    if (release["private tracker"]) flags.push("Private Tracker");
+    // Combine flags + custom tags inline
+    const allFlags: string[] = [];
+    if (release["dual audio"]) allFlags.push("Dual Audio");
+    if (release["is best"]) allFlags.push("Best Release");
+    if (release["private tracker"]) allFlags.push("Private Tracker");
+    if (release.tags && release.tags.length) allFlags.push(...release.tags);
 
-    const flagsLine = flags.length
-      ? `<div style="color:#3fa9f5; margin-bottom:4px;">${flags.join(" • ")}</div>`
+    const flagsLine = allFlags.length
+      ? `<div style="color:#3fa9f5; margin-bottom:8px;">${allFlags.join(" • ")}</div>`
       : "";
 
     const rawUrl = release.url ?? "";
@@ -126,21 +168,20 @@ export function injectReleasesPanel(data: ReleaseData) {
       ${flagsLine}
     `;
 
+    // url, copy link
     if (rawUrl) {
       const row = document.createElement("div");
       row.style.marginTop = "0.4rem";
 
       if (/^https?:\/\//i.test(rawUrl)) {
-        // Full URL → clickable
         const link = document.createElement("a");
         link.href = rawUrl;
-        link.textContent = "Download";
+        link.textContent = "Url";
         link.target = "_blank";
         link.rel = "noopener noreferrer";
         link.className = "link";
         row.appendChild(link);
       } else {
-        // Relative path → Copy only
         const copyBtn = document.createElement("a");
         copyBtn.textContent = "Copy";
         copyBtn.className = "link";
@@ -156,7 +197,6 @@ export function injectReleasesPanel(data: ReleaseData) {
             window.prompt("Copy URL", rawUrl);
           }
         });
-
         row.appendChild(copyBtn);
       }
 
@@ -197,5 +237,5 @@ export function injectReleasesPanel(data: ReleaseData) {
   });
 
   container.appendChild(contentWrap);
-  placeReleasesPanel(container);
+  placeReleasesPanel(container, anilistId);
 }
