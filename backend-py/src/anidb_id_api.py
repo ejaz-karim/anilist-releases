@@ -38,6 +38,7 @@ class AnidbIdApi:
 
         return None
 
+    # For the typescript extension, use /src/utility.ts getAnilistId()
     def get_anilist_id(self, anilist_url):
         if "://" in anilist_url:
             url = anilist_url.split("://", 1)[1]
@@ -128,36 +129,44 @@ class AnidbIdApi:
     def get_animetosho_metadata(self, anidb_id=None, anidb_episode_id=None):
         if not anidb_id and not anidb_episode_id:
             raise ValueError("Missing anidb id or anidb episode id")
+        if anidb_id and anidb_episode_id:
+            raise ValueError(
+                "Not allowed to parse both anidb id and anidb episode id at the same time"
+            )
 
         results = []
 
         if anidb_id:
             url = f"https://feed.animetosho.org/json?aid={anidb_id}"
-            response = requests.get(url)
-            response.raise_for_status()
-            data = response.json()
+        if anidb_episode_id:
+            url = f"https://feed.animetosho.org/json?eid={anidb_episode_id}"
 
-            scraper = nyaa_scraper.NyaaScraper()
+        response = requests.get(url)
+        response.raise_for_status()
+        data = response.json()
 
-            for entry in data:
-                info_hash = entry.get("info_hash")
+        scraper = nyaa_scraper.NyaaScraper()
 
-                if info_hash is not None:
-                    nyaa_url = f"https://nyaa.si/?q={info_hash}"
-                    nyaa_metadata = scraper.get_metadata(nyaa_url)
-                else:
-                    continue
+        for entry in data:
+            info_hash = entry.get("info_hash")
 
-                if nyaa_metadata is None:
-                    continue
-                elif int(nyaa_metadata["seeders"]) > 0:
-                    results.append(nyaa_metadata)
+            if info_hash is not None:
+                nyaa_url = f"https://nyaa.si/?q={info_hash}"
+                nyaa_metadata = scraper.get_metadata(nyaa_url)
+            else:
+                continue
 
-        # if anidb_episode_id:
-        #     url = f"https://feed.animetosho.org/json?eid={anidb_episode_id}"
+            if nyaa_metadata is None:
+                continue
+            elif int(nyaa_metadata["seeders"]) > 0:
+                results.append(nyaa_metadata)
 
         sorted_results = sorted(results, key=lambda x: int(x["seeders"]), reverse=True)
-        return sorted_results
+        if not sorted_results:
+            print("No releases have any seeders available")
+            return None
+        else:
+            return sorted_results
 
     # rate limited, use get_animetosho_metadata()
     def get_animetosho_nyaa_url(self, url):
@@ -179,4 +188,5 @@ class AnidbIdApi:
 
 
 if __name__ == "__main__":
-    print(AnidbIdApi().get_animetosho_metadata(7729))
+    # print(AnidbIdApi().get_animetosho_metadata(7729))
+    print(AnidbIdApi().get_animetosho_metadata(None, 268899))
