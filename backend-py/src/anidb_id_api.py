@@ -38,6 +38,28 @@ class AnidbIdApi:
 
         return None
 
+    def get_anidb_episode_ids(self, anilist_id):
+        try:
+            zenshin_api_url = f"https://zenshin-supabase-api.onrender.com/mappings?anilist_id={anilist_id}"
+            zenshin_response = requests.get(zenshin_api_url)
+            zenshin_response.raise_for_status()
+            zenshin_data = zenshin_response.json()
+            zenshin_episodes = zenshin_data.get("episodes")
+
+            episodes = []
+            for i in zenshin_episodes.values():
+                episode = {}
+                episode["episode"] = i.get("episode")
+                episode["anidb_episode_id"] = i.get("anidbEid")
+                episode["title"] = i.get("title").get("en")
+                episodes.append(episode)
+            return episodes
+
+        except (requests.RequestException, ValueError, KeyError, TypeError):
+            pass
+
+        return None
+
     # For the typescript extension, use /src/utility.ts getAnilistId()
     def get_anilist_id(self, anilist_url):
         if "://" in anilist_url:
@@ -189,4 +211,5 @@ class AnidbIdApi:
 
 if __name__ == "__main__":
     # print(AnidbIdApi().get_animetosho_metadata(7729))
-    print(AnidbIdApi().get_animetosho_metadata(None, 268899))
+    # print(AnidbIdApi().get_animetosho_metadata(None, 268899))
+    print(AnidbIdApi().get_anidb_episode_ids(21127))
