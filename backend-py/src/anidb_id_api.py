@@ -208,8 +208,17 @@ class AnidbIdApi:
         else:
             return None
 
+    def get_nyaa_anidb_episode(self, anilist_id, episode):
+        episodes = AnidbIdApi.get_anidb_episode_ids(self, anilist_id)
+        for i in episodes:
+            if i.get("episode") == str(episode):
+                anidb_episode_id = i.get("anidb_episode_id")
+                metadata = AnidbIdApi.get_animetosho_metadata(
+                    self, None, anidb_episode_id
+                )
+                return metadata
+        return None
+
 
 if __name__ == "__main__":
-    # print(AnidbIdApi().get_animetosho_metadata(7729))
-    # print(AnidbIdApi().get_animetosho_metadata(None, 268899))
-    print(AnidbIdApi().get_anidb_episode_ids(21127))
+    pass
