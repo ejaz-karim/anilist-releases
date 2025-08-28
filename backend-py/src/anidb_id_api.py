@@ -6,23 +6,36 @@ import nyaa_scraper
 
 class AnidbIdApi:
     def get_anidb_id(self, anilist_id):
-        try:
-            find_my_anime_api_url = f"https://find-my-anime.dtimur.de/api?id={anilist_id}&provider=Anilist&includeAdult=true&collectionConsent=false"
-            fma_response = requests.get(find_my_anime_api_url)
-            fma_response.raise_for_status()
-            fma_data = fma_response.json()
-            fma_anidb_id = fma_data[0].get("providerMapping").get("AniDB")
-            return fma_anidb_id
-        except (requests.RequestException, KeyError, IndexError, TypeError):
-            pass
+        # try:
+        #     find_my_anime_api_url = f"https://find-my-anime.dtimur.de/api?id={anilist_id}&provider=Anilist&includeAdult=true&collectionConsent=false"
+        #     fma_response = requests.get(find_my_anime_api_url)
+        #     fma_response.raise_for_status()
+        #     fma_data = fma_response.json()
+        #     fma_anidb_id = fma_data[0].get("providerMapping").get("AniDB")
+        #     return fma_anidb_id
+        # except (requests.RequestException, KeyError, IndexError, TypeError):
+        #     pass
 
         try:
-            api_ani_url = f"https://api.ani.zip/v1/mappings?anilist_id={anilist_id}"
+            api_ani_url = f"https://api.ani.zip/mappings?anilist_id={anilist_id}"
             api_ani_response = requests.get(api_ani_url)
             api_ani_response.raise_for_status()
             api_ani_data = api_ani_response.json()
-            api_ani_anidb_id = api_ani_data.get("anidb_id")
-            return api_ani_anidb_id
+
+            api_ani_anidb_id = api_ani_data.get("mappings").get("anidb_id")
+            api_ani_episodes = api_ani_data.get("episodes")
+
+            result = {"anidb_id": api_ani_anidb_id, "episodes": []}
+
+            for i in api_ani_episodes.values():
+                episode = {}
+                episode["episode"] = i.get("episode")
+                episode["anidb_episode_id"] = i.get("anidbEid")
+                episode["title"] = i.get("title").get("en")
+                result["episodes"].append(episode)
+
+            return result
+
         except (requests.RequestException, ValueError, KeyError, TypeError):
             pass
 
@@ -31,29 +44,20 @@ class AnidbIdApi:
             zenshin_response = requests.get(zenshin_api_url)
             zenshin_response.raise_for_status()
             zenshin_data = zenshin_response.json()
+
             zenshin_anidb_id = zenshin_data.get("mappings").get("anidb_id")
-            return zenshin_anidb_id
-        except (requests.RequestException, ValueError, KeyError, TypeError):
-            pass
-
-        return None
-
-    def get_anidb_episode_ids(self, anilist_id):
-        try:
-            zenshin_api_url = f"https://zenshin-supabase-api.onrender.com/mappings?anilist_id={anilist_id}"
-            zenshin_response = requests.get(zenshin_api_url)
-            zenshin_response.raise_for_status()
-            zenshin_data = zenshin_response.json()
             zenshin_episodes = zenshin_data.get("episodes")
 
-            episodes = []
+            result = {"anidb_id": zenshin_anidb_id, "episodes": []}
+
             for i in zenshin_episodes.values():
                 episode = {}
                 episode["episode"] = i.get("episode")
                 episode["anidb_episode_id"] = i.get("anidbEid")
                 episode["title"] = i.get("title").get("en")
-                episodes.append(episode)
-            return episodes
+                result["episodes"].append(episode)
+
+            return result
 
         except (requests.RequestException, ValueError, KeyError, TypeError):
             pass
