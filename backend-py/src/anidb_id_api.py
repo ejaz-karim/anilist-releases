@@ -213,7 +213,9 @@ class AnidbIdApi:
             return None
 
     def get_nyaa_anidb_episode(self, anilist_id, episode):
-        episodes = AnidbIdApi.get_anidb_episode_ids(self, anilist_id)
+        dict = AnidbIdApi.get_anidb_id(self, anilist_id)
+        episodes = dict["episodes"]
+
         for i in episodes:
             if i.get("episode") == str(episode):
                 anidb_episode_id = i.get("anidb_episode_id")
@@ -225,4 +227,5 @@ class AnidbIdApi:
 
 
 if __name__ == "__main__":
-    pass
+    # print(AnidbIdApi().get_anidb_id(9253))
+    print(AnidbIdApi().get_nyaa_anidb_episode(21, 1000))
