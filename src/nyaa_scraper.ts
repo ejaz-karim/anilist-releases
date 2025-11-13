@@ -1,4 +1,4 @@
-// nyaa_scraper.ts (Browser-only, strongly typed and null-safe)
+// nyaa_scraper.ts
 
 export type NyaaFile = {
   type: "file";
@@ -27,85 +27,97 @@ export type NyaaMetadata = {
   files?: NyaaEntry[] | null;
 };
 
-export async function getMetadata(html: string): Promise<NyaaMetadata> {
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(html, "text/html");
+export class NyaaScraper {
+  async getMetadata(url: string): Promise<NyaaMetadata | null> {
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error("Failed to fetch page");
+      const html = await response.text();
 
-  const releaseNameEl = doc.querySelector("h3.title");
-  const magnetEl = doc.querySelector("a[href^='magnet:?']");
-  const categoryEl = doc.querySelector("a.category");
-  const dateEl = doc.querySelector("time");
-  const submitterEl = doc.querySelector("a.username");
-  const seedersEl = doc.querySelector(".seeders");
-  const leechersEl = doc.querySelector(".leechers");
-  const fileSizeEl = doc.querySelector(".filesize");
-  const completedEl = doc.querySelector(".completed");
-  const fileTreeUl = doc.querySelector(".filetree > ul");
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, "text/html");
 
-  const files: NyaaEntry[] | null = fileTreeUl ? await formatFiles(fileTreeUl) : null;
+      const magnet = doc.querySelector("div.panel-footer.clearfix a[href^='magnet']")?.getAttribute("href");
+      if (!magnet) return null;
 
-  return {
-    "release name": releaseNameEl?.textContent?.trim() || null,
-    magnet: magnetEl?.getAttribute("href") || null,
-    category: categoryEl?.textContent?.trim() || null,
-    date: dateEl?.getAttribute("datetime") || null,
-    submitter: submitterEl?.textContent?.trim() || null,
-    seeders: seedersEl?.textContent?.trim() || null,
-    leechers: leechersEl?.textContent?.trim() || null,
-    "file size": fileSizeEl?.textContent?.trim() || null,
-    completed: completedEl?.textContent?.trim() || null,
-    files,
-  };
-}
+      const title = doc.querySelector("title")?.textContent?.replace(":: Nyaa", "").trim() ?? null;
+      const metadata: NyaaMetadata = {
+        "release name": title,
+        magnet,
+      };
 
-async function formatFiles(ulEl: Element): Promise<NyaaEntry[] | null> {
-  if (!ulEl) return null;
-  const results: NyaaEntry[] = [];
-  const children = Array.from(ulEl.querySelectorAll(":scope > li"));
+      // Parse metadata rows
+      const rows = Array.from(doc.querySelectorAll("div.panel-body .row"))
+        .flatMap((row) =>
+          row.textContent?.trim().split("\n").map((t) => t.trim()).filter(Boolean) ?? []
+        );
 
-  for (const li of children) {
-    const folderLink = li.querySelector("a.folder");
-    const fileLink = li.querySelector("a:not(.folder)");
-    const nestedUl = li.querySelector(":scope > ul");
+      for (let i = 0; i < rows.length; i++) {
+        const key = rows[i];
+        const value = rows[i + 1] || null;
+        switch (key) {
+          case "Category:":
+            metadata.category = value;
+            break;
+          case "Date:":
+            metadata.date = value;
+            break;
+          case "Submitter:":
+            metadata.submitter = value;
+            break;
+          case "Seeders:":
+            metadata.seeders = value;
+            break;
+          case "Leechers:":
+            metadata.leechers = value;
+            break;
+          case "File size:":
+            metadata["file size"] = value;
+            break;
+          case "Completed:":
+            metadata.completed = value;
+            break;
+        }
+      }
 
-    if (folderLink) {
-      // Folder
-      const folderName = folderLink.textContent?.trim() || null;
-      const folderContents: NyaaEntry[] | null = nestedUl ? await formatFiles(nestedUl) : null;
-      results.push({
-        type: "folder",
-        name: folderName,
-        contents: folderContents,
-      });
-    } else if (fileLink) {
-      // File
-      const fileName = fileLink.textContent?.trim() || null;
-      const sizeEl = li.querySelector(".file-size");
-      const size = sizeEl?.textContent?.trim() || null;
-      results.push({
-        type: "file",
-        name: fileName,
-        size,
-      });
+      const filesDiv = doc.querySelector("div.torrent-file-list.panel-body");
+      metadata.files = filesDiv ? this.formatFiles(filesDiv) : [];
+
+      return metadata;
+    } catch (err) {
+      console.error("Error scraping Nyaa:", err);
+      return null;
     }
   }
 
-  return results.length > 0 ? results : null;
-}
+  private formatFiles(element: Element): NyaaEntry[] {
+    const results: NyaaEntry[] = [];
 
-// ----------------------
-// Browser test example with webextension-polyfill
-import browser from "webextension-polyfill";
+    const ul = element.tagName === "DIV" ? element.querySelector("ul") : element;
+    if (!ul) return results;
 
-(async () => {
-  const response = await browser.runtime.sendMessage({
-    url: "https://nyaa.si/view/1992716",
-  });
+    const liElements = Array.from(ul.children).filter((el) => el.tagName === "LI");
 
-  if (response.html) {
-    const data = await getMetadata(response.html);
-    console.log(data);
-  } else {
-    console.error("Failed to fetch:", response.error);
+    for (const li of liElements) {
+      const folderLink = li.querySelector("a.folder");
+      if (folderLink) {
+        const name = folderLink.textContent?.trim() || null;
+        const nestedUl = li.querySelector(":scope > ul");
+        const contents = nestedUl ? this.formatFiles(nestedUl) : [];
+        results.push({ type: "folder", name, contents });
+        continue;
+      }
+
+      const fileIcon = li.querySelector("i.fa-file");
+      if (fileIcon) {
+        const size = li.querySelector(".file-size")?.textContent?.trim() || null;
+        // Sometimes file name is text right after the icon
+        const nameNode = fileIcon.nextSibling;
+        const name = nameNode && nameNode.nodeType === Node.TEXT_NODE ? nameNode.textContent?.trim() : null;
+        results.push({ type: "file", name, size });
+      }
+    }
+
+    return results;
   }
-})();
+}
