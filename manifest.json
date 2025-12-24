@@ -4,8 +4,13 @@
   "version": "0.1",
   "description": "",
   "permissions": [
-    "activeTab",
-    "scripting"
+    "activeTab"
+  ],
+  "host_permissions": [
+    "https://api.ani.zip/*",
+    "https://zenshin-supabase-api.onrender.com/*",
+    "https://feed.animetosho.org/*",
+    "https://nyaa.si/*"
   ],
   "content_scripts": [
     {
