@@ -1,103 +1,161 @@
-// anidb_id_api.ts
+// anidb_id_api.ts - Exact 1:1 port of anidb_id_api.py (src-new version)
+
 import { NyaaScraper, NyaaMetadata } from "./nyaa_scraper";
 
-export type AniEpisode = {
-  episode: string;
-  anidb_episode_id: string;
-  title: string;
-};
+export interface Episode {
+    episode: string;
+    anidb_episode_id: string;
+    title: string;
+}
 
-export type AniDbResult = {
-  anidb_id: string;
-  episodes: AniEpisode[];
-};
+export interface AnidbIdResult {
+    anidb_id: string;
+    episodes: Episode[];
+}
 
 export class AnidbIdApi {
-  private async fetchMapping(url: string): Promise<AniDbResult | null> {
-    try {
-      const res = await fetch(url);
-      if (!res.ok) return null;
-      const data = await res.json();
+    async getAnidbId(anilistId: number): Promise<AnidbIdResult | null> {
+        // Try api.ani.zip first
+        try {
+            const apiAniUrl = `https://api.ani.zip/mappings?anilist_id=${anilistId}`;
+            const apiAniResponse = await fetch(apiAniUrl);
+            if (!apiAniResponse.ok) {
+                throw new Error("Request failed");
+            }
+            const apiAniData = await apiAniResponse.json();
 
-      const anidb_id = data?.mappings?.anidb_id;
-      const episodesData = data?.episodes;
-      if (!anidb_id || !episodesData) return null;
+            const apiAniAnidbId = apiAniData.mappings?.anidb_id;
+            const apiAniEpisodes = apiAniData.episodes;
 
-      const episodes: AniEpisode[] = Object.values(episodesData).map((ep: any) => ({
-        episode: ep?.episode,
-        anidb_episode_id: ep?.anidbEid,
-        title: ep?.title?.en || "",
-      }));
+            const result: AnidbIdResult = {
+                anidb_id: apiAniAnidbId,
+                episodes: [],
+            };
 
-      return { anidb_id, episodes };
-    } catch {
-      return null;
+            for (const key in apiAniEpisodes) {
+                const i = apiAniEpisodes[key];
+                const episode: Episode = {
+                    episode: i.episode,
+                    anidb_episode_id: i.anidbEid,
+                    title: i.title?.en || "",
+                };
+                result.episodes.push(episode);
+            }
+
+            return result;
+        } catch {
+            // Fall through to try zenshin API
+        }
+
+        // Try zenshin API as fallback
+        try {
+            const zenshinApiUrl = `https://zenshin-supabase-api.onrender.com/mappings?anilist_id=${anilistId}`;
+            const zenshinResponse = await fetch(zenshinApiUrl);
+            if (!zenshinResponse.ok) {
+                throw new Error("Request failed");
+            }
+            const zenshinData = await zenshinResponse.json();
+
+            const zenshinAnidbId = zenshinData.mappings?.anidb_id;
+            const zenshinEpisodes = zenshinData.episodes;
+
+            const result: AnidbIdResult = {
+                anidb_id: zenshinAnidbId,
+                episodes: [],
+            };
+
+            for (const key in zenshinEpisodes) {
+                const i = zenshinEpisodes[key];
+                const episode: Episode = {
+                    episode: i.episode,
+                    anidb_episode_id: i.anidbEid,
+                    title: i.title?.en || "",
+                };
+                result.episodes.push(episode);
+            }
+
+            return result;
+        } catch {
+            // Both APIs failed
+        }
+
+        return null;
     }
-  }
 
-  async getAnidbId(anilist_id: number): Promise<AniDbResult | null> {
-    const aniZipUrl = `https://api.ani.zip/mappings?anilist_id=${anilist_id}`;
-    const zenshinUrl = `https://zenshin-supabase-api.onrender.com/mappings?anilist_id=${anilist_id}`;
+    async getAnimetoshoMetadata(
+        anidbId: string | null = null,
+        anidbEpisodeId: string | null = null
+    ): Promise<NyaaMetadata[] | null> {
+        if (!anidbId && !anidbEpisodeId) {
+            throw new Error("Missing anidb id or anidb episode id");
+        }
+        if (anidbId && anidbEpisodeId) {
+            throw new Error("Not allowed to parse both anidb id and anidb episode id at the same time");
+        }
 
-    const result1 = await this.fetchMapping(aniZipUrl);
-    if (result1) return result1;
+        const results: NyaaMetadata[] = [];
 
-    const result2 = await this.fetchMapping(zenshinUrl);
-    if (result2) return result2;
+        let url: string;
+        if (anidbId) {
+            url = `https://feed.animetosho.org/json?aid=${anidbId}`;
+        } else {
+            url = `https://feed.animetosho.org/json?eid=${anidbEpisodeId}`;
+        }
 
-    return null;
-  }
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+        const data = await response.json();
 
-  async getAnimetoshoMetadata(
-    anidb_id?: string,
-    anidb_episode_id?: string
-  ): Promise<NyaaMetadata[] | null> {
-    if (!anidb_id && !anidb_episode_id)
-      throw new Error("Missing anidb id or anidb episode id");
-    if (anidb_id && anidb_episode_id)
-      throw new Error("Cannot parse both anidb id and anidb episode id at once");
+        const scraper = new NyaaScraper();
 
-    const url = anidb_episode_id
-      ? `https://feed.animetosho.org/json?eid=${anidb_episode_id}`
-      : `https://feed.animetosho.org/json?aid=${anidb_id}`;
+        for (const entry of data) {
+            const infoHash = entry.info_hash;
 
-    const response = await fetch(url);
-    if (!response.ok) return null;
-    const data = await response.json();
-    if (!Array.isArray(data)) return null;
+            if (infoHash !== null && infoHash !== undefined) {
+                const nyaaUrl = `https://nyaa.si/?q=${infoHash}`;
+                const nyaaMetadata = await scraper.getMetadata(nyaaUrl);
 
-    const scraper = new NyaaScraper();
-    const results: NyaaMetadata[] = [];
+                if (nyaaMetadata === null) {
+                    continue;
+                } else if (parseInt(nyaaMetadata["seeders"] || "0") > 0) {
+                    results.push(nyaaMetadata);
+                }
+            } else {
+                continue;
+            }
+        }
 
-    for (const entry of data) {
-      const infoHash = entry?.info_hash;
-      if (!infoHash) continue;
+        const sortedResults = results.sort(
+            (a, b) => parseInt(b["seeders"] || "0") - parseInt(a["seeders"] || "0")
+        );
 
-      const nyaaUrl = `https://nyaa.si/?q=${infoHash}`;
-      const nyaaMetadata = await scraper.getMetadata(nyaaUrl);
-
-      if (nyaaMetadata && parseInt(nyaaMetadata.seeders || "0") > 0) {
-        results.push(nyaaMetadata);
-      }
+        if (sortedResults.length === 0) {
+            console.log("No releases have any seeders available");
+            return null;
+        } else {
+            return sortedResults;
+        }
     }
 
-    const sorted = results.sort(
-      (a, b) => parseInt(b.seeders || "0") - parseInt(a.seeders || "0")
-    );
+    async getNyaaAnidbEpisode(
+        anilistId: number,
+        episode: number | string
+    ): Promise<NyaaMetadata[] | null> {
+        const dict = await this.getAnidbId(anilistId);
+        if (!dict) {
+            return null;
+        }
+        const episodes = dict.episodes;
 
-    return sorted.length > 0 ? sorted : null;
-  }
-
-  async getNyaaAnidbEpisode(
-    anilist_id: number,
-    episode: string
-  ): Promise<NyaaMetadata[] | null> {
-    const mapping = await this.getAnidbId(anilist_id);
-    if (!mapping) return null;
-
-    const match = mapping.episodes.find((ep) => ep.episode === String(episode));
-    if (!match) return null;
-
-    return this.getAnimetoshoMetadata(undefined, match.anidb_episode_id);
-  }
+        for (const i of episodes) {
+            if (i.episode === String(episode)) {
+                const anidbEpisodeId = i.anidb_episode_id;
+                const metadata = await this.getAnimetoshoMetadata(null, anidbEpisodeId);
+                return metadata;
+            }
+        }
+        return null;
+    }
 }

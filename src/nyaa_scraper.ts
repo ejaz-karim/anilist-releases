@@ -1,123 +1,183 @@
-// nyaa_scraper.ts
+// nyaa_scraper.ts - Exact 1:1 port of nyaa_scraper.py
 
-export type NyaaFile = {
-  type: "file";
-  name?: string | null;
-  size?: string | null;
-};
+import browser from "webextension-polyfill";
 
-export type NyaaFolder = {
-  type: "folder";
-  name?: string | null;
-  contents?: NyaaEntry[] | null;
-};
+export interface FileItem {
+    type: "file";
+    name: string;
+    size: string | null;
+}
 
-export type NyaaEntry = NyaaFile | NyaaFolder;
+export interface FolderItem {
+    type: "folder";
+    name: string;
+    contents: (FileItem | FolderItem)[];
+}
 
-export type NyaaMetadata = {
-  "release name"?: string | null;
-  magnet?: string | null;
-  category?: string | null;
-  date?: string | null;
-  submitter?: string | null;
-  seeders?: string | null;
-  leechers?: string | null;
-  "file size"?: string | null;
-  completed?: string | null;
-  files?: NyaaEntry[] | null;
-};
+export type NyaaFileEntry = FileItem | FolderItem;
+
+export interface NyaaMetadata {
+    "release name": string;
+    "magnet": string;
+    "category"?: string;
+    "date"?: string;
+    "submitter"?: string;
+    "seeders"?: string;
+    "leechers"?: string;
+    "file size"?: string;
+    "completed"?: string;
+    "files": NyaaFileEntry[];
+}
+
+interface FetchResponse {
+    ok: boolean;
+    text: string | null;
+}
+
+// Helper to fetch via background script (bypasses CORS)
+async function backgroundFetch(url: string): Promise<FetchResponse> {
+    try {
+        const response = await browser.runtime.sendMessage({ type: "fetch", url });
+        return response as FetchResponse || { ok: false, text: null };
+    } catch (error) {
+        console.error("[NyaaScraper] Message error:", error);
+        return { ok: false, text: null };
+    }
+}
 
 export class NyaaScraper {
-  async getMetadata(url: string): Promise<NyaaMetadata | null> {
-    try {
-      const response = await fetch(url);
-      if (!response.ok) throw new Error("Failed to fetch page");
-      const html = await response.text();
+    async getMetadata(url: string): Promise<NyaaMetadata | null> {
+        const metadata: Partial<NyaaMetadata> = {};
 
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(html, "text/html");
+        try {
+            const response = await backgroundFetch(url);
+            if (!response.ok || !response.text) {
+                return null;
+            }
+            const html = response.text;
 
-      const magnet = doc.querySelector("div.panel-footer.clearfix a[href^='magnet']")?.getAttribute("href");
-      if (!magnet) return null;
+            const parser = new DOMParser();
+            const soup = parser.parseFromString(html, "text/html");
 
-      const title = doc.querySelector("title")?.textContent?.replace(":: Nyaa", "").trim() ?? null;
-      const metadata: NyaaMetadata = {
-        "release name": title,
-        magnet,
-      };
+            const magnetElement = soup.querySelector("div.panel-footer.clearfix a[href^='magnet']");
+            if (!magnetElement) {
+                return null;
+            }
+            const magnet = magnetElement.getAttribute("href");
+            if (!magnet) {
+                return null;
+            }
 
-      // Parse metadata rows
-      const rows = Array.from(doc.querySelectorAll("div.panel-body .row"))
-        .flatMap((row) =>
-          row.textContent?.trim().split("\n").map((t) => t.trim()).filter(Boolean) ?? []
-        );
+            const titleElement = soup.querySelector("title");
+            const title = titleElement?.textContent || "";
+            const releaseName = title.replace(":: Nyaa", "").trim();
 
-      for (let i = 0; i < rows.length; i++) {
-        const key = rows[i];
-        const value = rows[i + 1] || null;
-        switch (key) {
-          case "Category:":
-            metadata.category = value;
-            break;
-          case "Date:":
-            metadata.date = value;
-            break;
-          case "Submitter:":
-            metadata.submitter = value;
-            break;
-          case "Seeders:":
-            metadata.seeders = value;
-            break;
-          case "Leechers:":
-            metadata.leechers = value;
-            break;
-          case "File size:":
-            metadata["file size"] = value;
-            break;
-          case "Completed:":
-            metadata.completed = value;
-            break;
+            metadata["release name"] = releaseName;
+            metadata["magnet"] = magnet;
+
+            const rowsList: string[] = [];
+            const rows = soup.querySelectorAll("div.panel-body .row");
+            for (const row of rows) {
+                const lines = (row.textContent || "").trim().split("\n");
+                for (const line of lines) {
+                    const trimmed = line.trim();
+                    if (trimmed) {
+                        rowsList.push(trimmed);
+                    }
+                }
+            }
+
+            for (let i = 0; i < rowsList.length; i++) {
+                const element = rowsList[i];
+                switch (element) {
+                    case "Category:":
+                        if (i + 1 < rowsList.length) {
+                            metadata["category"] = rowsList[i + 1];
+                        }
+                        break;
+                    case "Date:":
+                        if (i + 1 < rowsList.length) {
+                            metadata["date"] = rowsList[i + 1];
+                        }
+                        break;
+                    case "Submitter:":
+                        if (i + 1 < rowsList.length) {
+                            metadata["submitter"] = rowsList[i + 1];
+                        }
+                        break;
+                    case "Seeders:":
+                        if (i + 1 < rowsList.length) {
+                            metadata["seeders"] = rowsList[i + 1];
+                        }
+                        break;
+                    case "Leechers:":
+                        if (i + 1 < rowsList.length) {
+                            metadata["leechers"] = rowsList[i + 1];
+                        }
+                        break;
+                    case "File size:":
+                        if (i + 1 < rowsList.length) {
+                            metadata["file size"] = rowsList[i + 1];
+                        }
+                        break;
+                    case "Completed:":
+                        if (i + 1 < rowsList.length) {
+                            metadata["completed"] = rowsList[i + 1];
+                        }
+                        break;
+                }
+            }
+
+            const filesDiv = soup.querySelector("div.torrent-file-list.panel-body");
+            metadata["files"] = filesDiv ? this.formatFiles(filesDiv) : [];
+
+            return metadata as NyaaMetadata;
+        } catch {
+            return null;
         }
-      }
-
-      const filesDiv = doc.querySelector("div.torrent-file-list.panel-body");
-      metadata.files = filesDiv ? this.formatFiles(filesDiv) : [];
-
-      return metadata;
-    } catch (err) {
-      console.error("Error scraping Nyaa:", err);
-      return null;
-    }
-  }
-
-  private formatFiles(element: Element): NyaaEntry[] {
-    const results: NyaaEntry[] = [];
-
-    const ul = element.tagName === "DIV" ? element.querySelector("ul") : element;
-    if (!ul) return results;
-
-    const liElements = Array.from(ul.children).filter((el) => el.tagName === "LI");
-
-    for (const li of liElements) {
-      const folderLink = li.querySelector("a.folder");
-      if (folderLink) {
-        const name = folderLink.textContent?.trim() || null;
-        const nestedUl = li.querySelector(":scope > ul");
-        const contents = nestedUl ? this.formatFiles(nestedUl) : [];
-        results.push({ type: "folder", name, contents });
-        continue;
-      }
-
-      const fileIcon = li.querySelector("i.fa-file");
-      if (fileIcon) {
-        const size = li.querySelector(".file-size")?.textContent?.trim() || null;
-        // Sometimes file name is text right after the icon
-        const nameNode = fileIcon.nextSibling;
-        const name = nameNode && nameNode.nodeType === Node.TEXT_NODE ? nameNode.textContent?.trim() : null;
-        results.push({ type: "file", name, size });
-      }
     }
 
-    return results;
-  }
+    formatFiles(files: Element): NyaaFileEntry[] {
+        const items: NyaaFileEntry[] = [];
+
+        let ul: Element | null = files;
+        if (files.tagName === "DIV") {
+            ul = files.querySelector("ul");
+            if (!ul) {
+                return items;
+            }
+        }
+
+        const listItems = ul.querySelectorAll(":scope > li");
+        for (const listItem of listItems) {
+            const folder = listItem.querySelector("a.folder");
+            if (folder) {
+                const folderName = folder.textContent?.trim() || "";
+                const nestedUl = listItem.querySelector("ul");
+                const contents = nestedUl ? this.formatFiles(nestedUl) : [];
+                items.push({
+                    type: "folder",
+                    name: folderName,
+                    contents: contents,
+                });
+            } else {
+                const fileIcon = listItem.querySelector("i.fa-file");
+                const sizeSpan = listItem.querySelector("span.file-size");
+                if (fileIcon) {
+                    const nextSibling = fileIcon.nextSibling;
+                    const fileName = nextSibling && nextSibling.nodeType === Node.TEXT_NODE
+                        ? nextSibling.textContent?.trim() || ""
+                        : "";
+                    const fileSize = sizeSpan?.textContent?.trim() || null;
+                    items.push({
+                        type: "file",
+                        name: fileName,
+                        size: fileSize,
+                    });
+                }
+            }
+        }
+
+        return items;
+    }
 }

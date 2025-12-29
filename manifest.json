@@ -1,17 +1,23 @@
 {
   "manifest_version": 3,
   "name": "anilist-releases",
-  "version": "0.1",
-  "description": "",
+  "version": "0.2",
+  "description": "Adds Seadex and Nyaa release panels to AniList anime pages",
   "permissions": [
     "activeTab"
   ],
   "host_permissions": [
+    "https://releases.moe/*",
     "https://api.ani.zip/*",
     "https://zenshin-supabase-api.onrender.com/*",
     "https://feed.animetosho.org/*",
     "https://nyaa.si/*"
   ],
+  "background": {
+    "scripts": [
+      "dist/background.js"
+    ]
+  },
   "content_scripts": [
     {
       "matches": [
