@@ -3,8 +3,8 @@
 import { getAnilistId } from "./utility";
 import { SeadexApi } from "./seadex_api";
 import {
-    injectReleasesPanel,
-    ensureReleasesPanelPlacement,
+    injectSeadexPanel,
+    ensureSeadexPanelPlacement,
     injectNyaaPanel,
     ensureNyaaPanelPlacement,
 } from "./inject_panel";
@@ -44,7 +44,7 @@ async function tryInject(): Promise<void> {
 
     // If Seadex panel exists for this anime, ensure placement and inject Nyaa panel
     if (document.getElementById("anilist-releases-panel")) {
-        ensureReleasesPanelPlacement(id);
+        ensureSeadexPanelPlacement(id);
         if (!document.getElementById("anilist-nyaa-panel")) {
             await injectNyaaPanel(id);
         }
@@ -53,7 +53,7 @@ async function tryInject(): Promise<void> {
 
     // Avoid duplicate fetches during rapid mutations
     if (inFlightId === id) {
-        ensureReleasesPanelPlacement(id);
+        ensureSeadexPanelPlacement(id);
         return;
     }
 
@@ -61,8 +61,8 @@ async function tryInject(): Promise<void> {
     try {
         const data = await seadexApi.getReleaseData(id);
         if (data) {
-            injectReleasesPanel(data, id);
-            ensureReleasesPanelPlacement(id);
+            injectSeadexPanel(data, id);
+            ensureSeadexPanelPlacement(id);
         }
     } catch (err) {
         console.error("Failed to inject Seadex releases:", err);
@@ -93,7 +93,7 @@ function observePageContent(): void {
     contentObserver = new MutationObserver(() => {
         scheduleTryInject();
         const currentId = getAnilistId();
-        ensureReleasesPanelPlacement(currentId);
+        ensureSeadexPanelPlacement(currentId);
         ensureNyaaPanelPlacement(currentId);
     });
     contentObserver.observe(target, { childList: true, subtree: true });

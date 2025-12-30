@@ -57,7 +57,7 @@ function linkifyAndSplitComparison(text: string): string {
     return out.join("<br>");
 }
 
-function placeReleasesPanel(panelContent: HTMLElement, anilistId: number): void {
+function placeSeadexPanel(panelContent: HTMLElement, anilistId: number): void {
     document.querySelectorAll(`#${PANEL_ID}`).forEach((n) => n.remove());
 
     const wrap = document.createElement("div");
@@ -81,7 +81,7 @@ function placeReleasesPanel(panelContent: HTMLElement, anilistId: number): void 
     }
 }
 
-export function ensureReleasesPanelPlacement(currentAniId: number | null): void {
+export function ensureSeadexPanelPlacement(currentAniId: number | null): void {
     const panel = document.getElementById(PANEL_ID) as HTMLElement | null;
     if (!panel) return;
 
@@ -101,12 +101,12 @@ export function ensureReleasesPanelPlacement(currentAniId: number | null): void 
     panel.dataset.anchored = "true";
 }
 
-export function injectReleasesPanel(data: ReleaseData, anilistId: number): void {
+export function injectSeadexPanel(data: ReleaseData, anilistId: number): void {
     const container = document.createElement("div");
 
     // Header
     const header = document.createElement("h2");
-    header.textContent = "Releases";
+    header.textContent = "Seadex Releases";
     header.className = "section-header";
     container.appendChild(header);
 
@@ -128,16 +128,19 @@ export function injectReleasesPanel(data: ReleaseData, anilistId: number): void 
         if (data.comparison) {
             const cmp = document.createElement("div");
             cmp.innerHTML = `<strong>Comparison:</strong><br>${linkifyAndSplitComparison(data.comparison)}`;
+            cmp.style.marginBottom = "0.75rem";
             meta.appendChild(cmp);
         }
         if (data.notes) {
             const notes = document.createElement("div");
             notes.innerHTML = `<strong>Notes:</strong> ${data.notes.replace(/\n/g, "<br>")}`;
+            notes.style.marginBottom = "0.75rem";
             meta.appendChild(notes);
         }
         if (data["theoretical best"]) {
             const best = document.createElement("div");
             best.innerHTML = `<strong>Theoretical Best:</strong> ${data["theoretical best"]}`;
+            // Last item doesn't need margin bottom
             meta.appendChild(best);
         }
 
@@ -219,16 +222,14 @@ export function injectReleasesPanel(data: ReleaseData, anilistId: number): void 
             const toggle = document.createElement("a");
             toggle.textContent = "Show Episodes";
             toggle.className = "link";
-            toggle.style.display = "block";
-            toggle.style.marginTop = "0.5rem";
+            toggle.style.cssText = "display: block; margin-top: 0.75rem;"; // Match Nyaa styling
 
             const epContainer = document.createElement("ul");
-            epContainer.style.marginTop = "0.5rem";
-            epContainer.style.paddingLeft = "1.2rem";
-            epContainer.style.display = "none";
+            epContainer.style.cssText = "display: none; margin-top: 0.5rem; padding-left: 1.2rem; font-size: 0.85em;"; // Match Nyaa styling (added font-size)
 
             release["episode list"].forEach((ep) => {
                 const li = document.createElement("li");
+                li.style.cssText = "margin: 0.25rem 0;"; // Add breathing room between items
                 li.textContent = `${ep.name ?? ""} — ${ep.size ?? ""}`;
                 epContainer.appendChild(li);
             });
@@ -248,7 +249,7 @@ export function injectReleasesPanel(data: ReleaseData, anilistId: number): void 
     });
 
     container.appendChild(contentWrap);
-    placeReleasesPanel(container, anilistId);
+    placeSeadexPanel(container, anilistId);
 }
 
 // ===== Nyaa Panel Functions =====
@@ -257,6 +258,7 @@ function placeNyaaPanel(panel: HTMLElement, _anilistId: number): void {
     // Try to place after Seadex panel
     const seadexPanel = document.getElementById(PANEL_ID);
     if (seadexPanel && seadexPanel.parentElement) {
+        panel.style.marginTop = "2rem"; // Add spacing between panels
         seadexPanel.insertAdjacentElement("afterend", panel);
         return;
     }
@@ -286,6 +288,7 @@ export function ensureNyaaPanelPlacement(currentAniId: number | null): void {
     const seadexPanel = document.getElementById(PANEL_ID);
     if (seadexPanel && seadexPanel.parentElement) {
         if (panel.previousElementSibling !== seadexPanel) {
+            panel.style.marginTop = "2rem"; // Add spacing between panels
             seadexPanel.insertAdjacentElement("afterend", panel);
         }
         return;
@@ -589,19 +592,13 @@ function displayNyaaResults(results: NyaaMetadata[], container: HTMLElement): vo
             linksRow.style.cssText = "margin-top: 0.75rem;";
 
             if (release.magnet) {
-                const magnetLink = document.createElement("a");
-                magnetLink.href = release.magnet;
-                magnetLink.textContent = "Magnet";
-                magnetLink.className = "link";
-                magnetLink.target = "_blank";
-                magnetLink.rel = "noopener noreferrer";
-                linksRow.appendChild(magnetLink);
+                // Removed redundant "Magnet" text link
 
                 const copyBtn = document.createElement("a");
                 copyBtn.textContent = "Copy";
                 copyBtn.className = "link";
                 copyBtn.href = "javascript:void(0)";
-                copyBtn.style.cssText = "margin-left: 0.75rem;";
+                // copyBtn.style.cssText = "margin-left: 0.75rem;"; // No margin needed since it's first now
                 copyBtn.addEventListener("click", async (ev) => {
                     ev.preventDefault();
                     try {
@@ -621,10 +618,11 @@ function displayNyaaResults(results: NyaaMetadata[], container: HTMLElement): vo
             if (release.url) {
                 const urlLink = document.createElement("a");
                 urlLink.href = release.url;
-                urlLink.textContent = "Nyaa";
+                urlLink.textContent = "Url"; // Renamed from "Nyaa"
                 urlLink.className = "link";
                 urlLink.target = "_blank";
                 urlLink.rel = "noopener noreferrer";
+                // Add margin if there is a copy button before it
                 urlLink.style.cssText = release.magnet ? "margin-left: 0.75rem;" : "";
                 linksRow.appendChild(urlLink);
             }
