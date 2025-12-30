@@ -1,5 +1,3 @@
-// inject_panel.ts - Complete rewrite with episode dropdown selector
-
 import type { ReleaseData, ReleaseEntry } from "./seadex_api";
 import { AnidbIdApi, type Episode } from "./anidb_id_api";
 import type { NyaaMetadata, NyaaFileEntry } from "./nyaa_scraper";
@@ -7,15 +5,14 @@ import type { NyaaMetadata, NyaaFileEntry } from "./nyaa_scraper";
 const PANEL_ID = "anilist-releases-panel";
 const NYAA_PANEL_ID = "anilist-nyaa-panel";
 
-// Cache for episode data
 let cachedEpisodes: Episode[] | null = null;
 let cachedAnilistId: number | null = null;
 
+// Anchor Finding
 function findAnchor(): HTMLElement | null {
     const mediaRoot = document.querySelector<HTMLElement>(".page-content .media.media-anime");
     if (!mediaRoot) return null;
 
-    // Prefer Reviews, otherwise Threads
     const reviews = mediaRoot.querySelector(".reviews");
     if (reviews) {
         const wrap = reviews.closest<HTMLElement>(".grid-section-wrap");
@@ -57,6 +54,7 @@ function linkifyAndSplitComparison(text: string): string {
     return out.join("<br>");
 }
 
+// Seadex Injection
 function placeSeadexPanel(panelContent: HTMLElement, anilistId: number): void {
     document.querySelectorAll(`#${PANEL_ID}`).forEach((n) => n.remove());
 
@@ -81,6 +79,7 @@ function placeSeadexPanel(panelContent: HTMLElement, anilistId: number): void {
     }
 }
 
+// Placement Enforcement
 export function ensureSeadexPanelPlacement(currentAniId: number | null): void {
     const panel = document.getElementById(PANEL_ID) as HTMLElement | null;
     if (!panel) return;
@@ -104,20 +103,17 @@ export function ensureSeadexPanelPlacement(currentAniId: number | null): void {
 export function injectSeadexPanel(data: ReleaseData, anilistId: number): void {
     const container = document.createElement("div");
 
-    // Header
     const header = document.createElement("h2");
     header.textContent = "Seadex Releases";
     header.className = "section-header";
     container.appendChild(header);
 
-    // Content wrapper
     const contentWrap = document.createElement("div");
     contentWrap.className = "content-wrap list";
     contentWrap.style.display = "flex";
     contentWrap.style.flexWrap = "wrap";
     contentWrap.style.gap = "1rem";
 
-    // Combined meta box
     if (data.comparison || data.notes || data["theoretical best"]) {
         const meta = document.createElement("div");
         meta.className = "wrap entry";
@@ -140,14 +136,12 @@ export function injectSeadexPanel(data: ReleaseData, anilistId: number): void {
         if (data["theoretical best"]) {
             const best = document.createElement("div");
             best.innerHTML = `<strong>Theoretical Best:</strong> ${data["theoretical best"]}`;
-            // Last item doesn't need margin bottom
             meta.appendChild(best);
         }
 
         contentWrap.appendChild(meta);
     }
 
-    // Release cards
     data.releases.forEach((release: ReleaseEntry) => {
         const wrap = document.createElement("div");
         wrap.className = "wrap";
@@ -159,7 +153,6 @@ export function injectSeadexPanel(data: ReleaseData, anilistId: number): void {
         card.className = "entry";
         card.style.padding = "1rem";
 
-        // Combine flags inline
         const allFlags: string[] = [];
         if (release["dual audio"]) allFlags.push("Dual Audio");
         if (release["is best"]) allFlags.push("Best Release");
@@ -180,7 +173,6 @@ export function injectSeadexPanel(data: ReleaseData, anilistId: number): void {
             ${flagsLine}
         `;
 
-        // URL / copy link
         if (rawUrl) {
             const row = document.createElement("div");
             row.style.marginTop = "0.4rem";
@@ -217,19 +209,18 @@ export function injectSeadexPanel(data: ReleaseData, anilistId: number): void {
             card.appendChild(row);
         }
 
-        // Collapsible episodes
         if (release["episode list"]?.length) {
             const toggle = document.createElement("a");
             toggle.textContent = "Show Episodes";
             toggle.className = "link";
-            toggle.style.cssText = "display: block; margin-top: 0.75rem;"; // Match Nyaa styling
+            toggle.style.cssText = "display: block; margin-top: 0.75rem;";
 
             const epContainer = document.createElement("ul");
-            epContainer.style.cssText = "display: none; margin-top: 0.5rem; padding-left: 1.2rem; font-size: 0.85em;"; // Match Nyaa styling (added font-size)
+            epContainer.style.cssText = "display: none; margin-top: 0.5rem; padding-left: 1.2rem; font-size: 0.85em;";
 
             release["episode list"].forEach((ep) => {
                 const li = document.createElement("li");
-                li.style.cssText = "margin: 0.25rem 0;"; // Add breathing room between items
+                li.style.cssText = "margin: 0.25rem 0;";
                 li.textContent = `${ep.name ?? ""} — ${ep.size ?? ""}`;
                 epContainer.appendChild(li);
             });
@@ -252,25 +243,21 @@ export function injectSeadexPanel(data: ReleaseData, anilistId: number): void {
     placeSeadexPanel(container, anilistId);
 }
 
-// ===== Nyaa Panel Functions =====
-
+// Nyaa Injection
 function placeNyaaPanel(panel: HTMLElement, _anilistId: number): void {
-    // Try to place after Seadex panel
     const seadexPanel = document.getElementById(PANEL_ID);
     if (seadexPanel && seadexPanel.parentElement) {
-        panel.style.marginTop = "2rem"; // Add spacing between panels
+        panel.style.marginTop = "2rem";
         seadexPanel.insertAdjacentElement("afterend", panel);
         return;
     }
 
-    // Fallback to anchor
     const anchor = findAnchor();
     if (anchor && anchor.parentElement) {
         anchor.insertAdjacentElement("afterend", panel);
         return;
     }
 
-    // Last resort
     const provisional = provisionalContainer();
     if (provisional) {
         provisional.appendChild(panel);
@@ -288,13 +275,12 @@ export function ensureNyaaPanelPlacement(currentAniId: number | null): void {
     const seadexPanel = document.getElementById(PANEL_ID);
     if (seadexPanel && seadexPanel.parentElement) {
         if (panel.previousElementSibling !== seadexPanel) {
-            panel.style.marginTop = "2rem"; // Add spacing between panels
+            panel.style.marginTop = "2rem";
             seadexPanel.insertAdjacentElement("afterend", panel);
         }
         return;
     }
 
-    // Fallback if Seadex panel not found
     const anchor = findAnchor();
     if (anchor && anchor.parentElement) {
         if (panel.previousElementSibling !== anchor) {
@@ -303,8 +289,8 @@ export function ensureNyaaPanelPlacement(currentAniId: number | null): void {
     }
 }
 
+// Episode Caching
 async function loadEpisodeData(anilistId: number): Promise<Episode[]> {
-    // Return cached data if available for same anime
     if (cachedEpisodes && cachedAnilistId === anilistId) {
         return cachedEpisodes;
     }
@@ -313,13 +299,11 @@ async function loadEpisodeData(anilistId: number): Promise<Episode[]> {
     const result = await api.getAnidbId(anilistId);
 
     if (result && result.episodes) {
-        // Filter to only regular episodes (numeric)
         const regularEpisodes = result.episodes.filter((ep) => {
             const epNum = parseInt(ep.episode, 10);
             return !isNaN(epNum) && epNum > 0;
         });
 
-        // Sort by episode number
         regularEpisodes.sort((a, b) => parseInt(a.episode, 10) - parseInt(b.episode, 10));
 
         cachedEpisodes = regularEpisodes;
@@ -352,12 +336,11 @@ function populateEpisodeDropdown(select: HTMLSelectElement, episodes: Episode[])
 }
 
 export async function injectNyaaPanel(anilistId: number): Promise<void> {
-    // Remove existing panel for different anime
     const existingPanel = document.getElementById(NYAA_PANEL_ID);
     if (existingPanel && existingPanel.dataset.anilistId !== String(anilistId)) {
         existingPanel.remove();
     }
-    if (existingPanel) return; // Already exists for this anime
+    if (existingPanel) return;
 
     const panel = document.createElement("div");
     panel.id = NYAA_PANEL_ID;
@@ -367,21 +350,17 @@ export async function injectNyaaPanel(anilistId: number): Promise<void> {
     const section = document.createElement("div");
     section.className = "section";
 
-    // Header
     const header = document.createElement("h2");
     header.textContent = "Nyaa Releases";
     header.className = "section-header";
     section.appendChild(header);
 
-    // Content
     const content = document.createElement("div");
     content.className = "content-wrap";
 
-    // Search controls
     const controls = document.createElement("div");
     controls.style.cssText = "display: flex; gap: 1rem; margin-bottom: 1rem; align-items: center; flex-wrap: wrap;";
 
-    // Radio buttons
     const fullRadio = document.createElement("input");
     fullRadio.type = "radio";
     fullRadio.id = "nyaa-full-release";
@@ -405,23 +384,19 @@ export async function injectNyaaPanel(anilistId: number): Promise<void> {
     episodeLabel.textContent = "Episodic";
     episodeLabel.style.cssText = "display: inline-flex; align-items: center; gap: 0.25rem;";
 
-    // Episode dropdown selector
     const episodeSelect = document.createElement("select");
     episodeSelect.id = "nyaa-episode-select";
     episodeSelect.style.cssText = "padding: 0.25rem 0.5rem; display: none; min-width: 200px;";
 
-    // Search button
     const searchBtn = document.createElement("button");
     searchBtn.id = "search-nyaa-btn";
     searchBtn.textContent = "Start Search";
     searchBtn.className = "button";
     searchBtn.style.cssText = "padding: 0.5rem 1rem; cursor: pointer;";
 
-    // Event listeners
     const updateEpisodeSelectVisibility = async () => {
         if (episodeRadio.checked) {
             episodeSelect.style.display = "block";
-            // Load episodes if not cached
             if (!cachedEpisodes || cachedAnilistId !== anilistId) {
                 episodeSelect.innerHTML = "<option>Loading...</option>";
                 const episodes = await loadEpisodeData(anilistId);
@@ -446,7 +421,6 @@ export async function injectNyaaPanel(anilistId: number): Promise<void> {
 
     content.appendChild(controls);
 
-    // Results area
     const resultsArea = document.createElement("div");
     resultsArea.id = "nyaa-results";
     content.appendChild(resultsArea);
@@ -454,7 +428,6 @@ export async function injectNyaaPanel(anilistId: number): Promise<void> {
     section.appendChild(content);
     panel.appendChild(section);
 
-    // Place the panel
     placeNyaaPanel(panel, anilistId);
 }
 
@@ -463,11 +436,9 @@ async function handleNyaaSearch(anilistId: number): Promise<void> {
     const searchBtn = document.getElementById("search-nyaa-btn") as HTMLButtonElement;
     if (!resultsArea || !searchBtn) return;
 
-    // Disable button during search
     searchBtn.disabled = true;
     searchBtn.textContent = "Searching...";
 
-    // Get selected option
     const fullRelease =
         (document.querySelector('input[name="nyaa-release-type"]:checked') as HTMLInputElement)?.value === "full";
     const episodeSelect = document.getElementById("nyaa-episode-select") as HTMLSelectElement;
@@ -480,14 +451,12 @@ async function handleNyaaSearch(anilistId: number): Promise<void> {
         return;
     }
 
-    // Show loading state with live count
     const statusText = document.createElement("p");
     statusText.style.marginTop = "1rem";
     statusText.textContent = "Searching Nyaa... Found 0 sources";
     resultsArea.innerHTML = "";
     resultsArea.appendChild(statusText);
 
-    // Progress callback to update count live
     const updateProgress = (count: number) => {
         statusText.textContent = `Searching Nyaa... Found ${count} sources`;
     };
@@ -497,7 +466,6 @@ async function handleNyaaSearch(anilistId: number): Promise<void> {
 
         let results: NyaaMetadata[] | null;
         if (fullRelease) {
-            // Get mapping for anidb_id
             const mapping = await anidbApi.getAnidbId(anilistId);
             if (!mapping) {
                 resultsArea.innerHTML = '<p style="color: #ff6b6b; margin-top: 1rem;">Failed to get AniDB mapping</p>';
@@ -505,7 +473,6 @@ async function handleNyaaSearch(anilistId: number): Promise<void> {
             }
             results = await anidbApi.getAnimetoshoMetadata(mapping.anidb_id, null, updateProgress);
         } else {
-            // Use convenience method for episodic search
             results = await anidbApi.getNyaaAnidbEpisode(anilistId, selectedEpisode!, updateProgress);
         }
 
@@ -519,7 +486,6 @@ async function handleNyaaSearch(anilistId: number): Promise<void> {
         console.error("Nyaa search error:", error);
         resultsArea.innerHTML = '<p style="color: #ff6b6b; margin-top: 1rem;">Error searching Nyaa</p>';
     } finally {
-        // Re-enable button
         searchBtn.disabled = false;
         searchBtn.textContent = "Start Search";
     }
@@ -550,7 +516,7 @@ function renderFileTree(entries: NyaaFileEntry[], depth: number = 0): HTMLUListE
 
 function displayNyaaResults(results: NyaaMetadata[], container: HTMLElement): void {
     const contentWrap = document.createElement("div");
-    contentWrap.className = "content-wrap list";
+    contentWrap.className = "content-wrap";
     contentWrap.style.cssText = "display: flex; flex-wrap: wrap; gap: 1rem; margin-top: 1rem;";
 
     results.forEach((release) => {
@@ -562,13 +528,11 @@ function displayNyaaResults(results: NyaaMetadata[], container: HTMLElement): vo
         card.className = "entry";
         card.style.cssText = "padding: 1rem;";
 
-        // Release name
         const title = document.createElement("div");
         title.style.cssText = "font-weight: 600; margin-bottom: 4px; color: #3fa9f5;";
         title.textContent = release["release name"] || "Unknown Release";
         card.appendChild(title);
 
-        // Metadata
         const meta = document.createElement("div");
         meta.style.cssText = "font-size: 0.9em; line-height: 1.4;";
 
@@ -586,19 +550,15 @@ function displayNyaaResults(results: NyaaMetadata[], container: HTMLElement): vo
         meta.appendChild(submitter);
         card.appendChild(meta);
 
-        // Links row (Magnet, Copy, URL)
         if (release.magnet || release.url) {
             const linksRow = document.createElement("div");
             linksRow.style.cssText = "margin-top: 0.75rem;";
 
             if (release.magnet) {
-                // Removed redundant "Magnet" text link
-
                 const copyBtn = document.createElement("a");
                 copyBtn.textContent = "Copy";
                 copyBtn.className = "link";
                 copyBtn.href = "javascript:void(0)";
-                // copyBtn.style.cssText = "margin-left: 0.75rem;"; // No margin needed since it's first now
                 copyBtn.addEventListener("click", async (ev) => {
                     ev.preventDefault();
                     try {
@@ -618,11 +578,10 @@ function displayNyaaResults(results: NyaaMetadata[], container: HTMLElement): vo
             if (release.url) {
                 const urlLink = document.createElement("a");
                 urlLink.href = release.url;
-                urlLink.textContent = "Url"; // Renamed from "Nyaa"
+                urlLink.textContent = "Url";
                 urlLink.className = "link";
                 urlLink.target = "_blank";
                 urlLink.rel = "noopener noreferrer";
-                // Add margin if there is a copy button before it
                 urlLink.style.cssText = release.magnet ? "margin-left: 0.75rem;" : "";
                 linksRow.appendChild(urlLink);
             }
@@ -630,7 +589,6 @@ function displayNyaaResults(results: NyaaMetadata[], container: HTMLElement): vo
             card.appendChild(linksRow);
         }
 
-        // Files info
         if (release.files && release.files.length > 0) {
             const toggle = document.createElement("a");
             toggle.textContent = "Show Files";
@@ -646,7 +604,6 @@ function displayNyaaResults(results: NyaaMetadata[], container: HTMLElement): vo
                 toggle.textContent = isHidden ? "Hide Files" : "Show Files";
             });
 
-            // Render file tree
             const fileTree = renderFileTree(release.files);
             fileContainer.appendChild(fileTree);
 

@@ -1,5 +1,3 @@
-// seadex_api.ts - Exact 1:1 port of seadex_api.py
-
 export interface EpisodeEntry {
     name: string;
     size: string;
@@ -77,12 +75,7 @@ export class SeadexApi {
 
             const totalFileSizeFormat = this.formatFileSize(totalFileSize);
 
-            let privateTracker: boolean;
-            if (entry.infoHash === "<redacted>") {
-                privateTracker = true;
-            } else {
-                privateTracker = false;
-            }
+            const privateTracker = entry.infoHash === "<redacted>";
 
             const entryDict: ReleaseEntry = {
                 "tracker": tracker,

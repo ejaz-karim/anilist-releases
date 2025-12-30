@@ -1,5 +1,3 @@
-// nyaa_scraper.ts - Exact 1:1 port of nyaa_scraper.py
-
 import browser from "webextension-polyfill";
 
 export interface FileItem {
@@ -35,7 +33,7 @@ interface FetchResponse {
     text: string | null;
 }
 
-// Helper to fetch via background script (bypasses CORS)
+// Bypasses CORS by delegating fetch to background script
 async function backgroundFetch(url: string): Promise<FetchResponse> {
     try {
         const response = await browser.runtime.sendMessage({ type: "fetch", url });

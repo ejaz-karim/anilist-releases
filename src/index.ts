@@ -1,5 +1,3 @@
-// index.ts - Clean rewrite of the extension entry point
-
 import { getAnilistId } from "./utility";
 import { SeadexApi } from "./seadex_api";
 import {
@@ -11,6 +9,7 @@ import {
 
 const seadexApi = new SeadexApi();
 
+// Prevent race conditions from rapid mutations
 let inFlightId: number | null = null;
 let scheduledTimeout: number = 0;
 let contentObserver: MutationObserver | null = null;
@@ -19,11 +18,11 @@ function isAnimePage(): boolean {
     return document.querySelector(".page-content .media.media-anime") !== null;
 }
 
+// Orchestrates panel injection
 async function tryInject(): Promise<void> {
     const id = getAnilistId();
     const isAnime = isAnimePage();
 
-    // If not anime → remove any lingering panels and exit
     if (!isAnime) {
         document.querySelectorAll("#anilist-releases-panel, #anilist-nyaa-panel").forEach((n) => n.remove());
         return;
@@ -31,7 +30,6 @@ async function tryInject(): Promise<void> {
 
     if (!id) return;
 
-    // Remove panels for different anime
     const existingSeadex = document.getElementById("anilist-releases-panel");
     if (existingSeadex && existingSeadex.dataset.anilistId !== String(id)) {
         existingSeadex.remove();
@@ -42,7 +40,6 @@ async function tryInject(): Promise<void> {
         existingNyaa.remove();
     }
 
-    // If Seadex panel exists for this anime, ensure placement and inject Nyaa panel
     if (document.getElementById("anilist-releases-panel")) {
         ensureSeadexPanelPlacement(id);
         if (!document.getElementById("anilist-nyaa-panel")) {
@@ -51,7 +48,6 @@ async function tryInject(): Promise<void> {
         return;
     }
 
-    // Avoid duplicate fetches during rapid mutations
     if (inFlightId === id) {
         ensureSeadexPanelPlacement(id);
         return;
@@ -70,12 +66,12 @@ async function tryInject(): Promise<void> {
         inFlightId = null;
     }
 
-    // Always inject Nyaa panel (independent of Seadex fetch)
     if (!document.getElementById("anilist-nyaa-panel")) {
         await injectNyaaPanel(id);
     }
 }
 
+// Debounce injections
 function scheduleTryInject(): void {
     if (scheduledTimeout) return;
     scheduledTimeout = window.setTimeout(() => {
@@ -101,6 +97,7 @@ function observePageContent(): void {
     tryInject();
 }
 
+// Handle SPA navigation re-renders
 function setupRootObserver(): void {
     const root = document.getElementById("app") || document.body;
     if (!root) return;
@@ -121,5 +118,4 @@ function setupRootObserver(): void {
     observePageContent();
 }
 
-// Boot
 setupRootObserver();

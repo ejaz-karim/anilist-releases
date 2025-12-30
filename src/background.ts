@@ -1,5 +1,3 @@
-// background.ts - Background script for cross-origin fetches
-
 import browser from "webextension-polyfill";
 
 interface FetchMessage {
@@ -11,12 +9,11 @@ function isFetchMessage(msg: unknown): msg is FetchMessage {
     return typeof msg === "object" && msg !== null && (msg as FetchMessage).type === "fetch";
 }
 
-// Listen for messages from content scripts
+// Proxies requests to bypass CORS restrictions
 browser.runtime.onMessage.addListener((message: unknown) => {
     if (isFetchMessage(message)) {
         const { url } = message;
 
-        // Return a Promise for the async response
         return fetch(url)
             .then(async (response) => {
                 if (!response.ok) {

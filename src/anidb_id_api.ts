@@ -1,5 +1,3 @@
-// anidb_id_api.ts - Exact 1:1 port of anidb_id_api.py (src-new version)
-
 import { NyaaScraper, NyaaMetadata } from "./nyaa_scraper";
 
 export interface Episode {
@@ -123,7 +121,6 @@ export class AnidbIdApi {
                 } else if (parseInt(nyaaMetadata["seeders"] || "0") > 0) {
                     nyaaMetadata["url"] = nyaaUrl;
                     results.push(nyaaMetadata);
-                    // Call progress callback with current count
                     if (onProgress) {
                         onProgress(results.length);
                     }
@@ -138,7 +135,6 @@ export class AnidbIdApi {
         );
 
         if (sortedResults.length === 0) {
-            console.log("No releases have any seeders available");
             return null;
         } else {
             return sortedResults;
