@@ -477,8 +477,17 @@ async function handleNyaaSearch(anilistId: number): Promise<void> {
         return;
     }
 
-    // Show loading state
-    resultsArea.innerHTML = '<p style="margin-top: 1rem;">Searching Nyaa...</p>';
+    // Show loading state with live count
+    const statusText = document.createElement("p");
+    statusText.style.marginTop = "1rem";
+    statusText.textContent = "Searching Nyaa... Found 0 sources";
+    resultsArea.innerHTML = "";
+    resultsArea.appendChild(statusText);
+
+    // Progress callback to update count live
+    const updateProgress = (count: number) => {
+        statusText.textContent = `Searching Nyaa... Found ${count} sources`;
+    };
 
     try {
         const anidbApi = new AnidbIdApi();
@@ -491,10 +500,10 @@ async function handleNyaaSearch(anilistId: number): Promise<void> {
                 resultsArea.innerHTML = '<p style="color: #ff6b6b; margin-top: 1rem;">Failed to get AniDB mapping</p>';
                 return;
             }
-            results = await anidbApi.getAnimetoshoMetadata(mapping.anidb_id, null);
+            results = await anidbApi.getAnimetoshoMetadata(mapping.anidb_id, null, updateProgress);
         } else {
             // Use convenience method for episodic search
-            results = await anidbApi.getNyaaAnidbEpisode(anilistId, selectedEpisode!);
+            results = await anidbApi.getNyaaAnidbEpisode(anilistId, selectedEpisode!, updateProgress);
         }
 
         if (!results || results.length === 0) {
@@ -574,40 +583,53 @@ function displayNyaaResults(results: NyaaMetadata[], container: HTMLElement): vo
         meta.appendChild(submitter);
         card.appendChild(meta);
 
-        // Magnet link
-        if (release.magnet) {
-            const magnetRow = document.createElement("div");
-            magnetRow.style.cssText = "margin-top: 0.75rem;";
+        // Links row (Magnet, Copy, URL)
+        if (release.magnet || release.url) {
+            const linksRow = document.createElement("div");
+            linksRow.style.cssText = "margin-top: 0.75rem;";
 
-            const magnetLink = document.createElement("a");
-            magnetLink.href = release.magnet;
-            magnetLink.textContent = "Magnet Link";
-            magnetLink.className = "link";
-            magnetLink.target = "_blank";
-            magnetLink.rel = "noopener noreferrer";
+            if (release.magnet) {
+                const magnetLink = document.createElement("a");
+                magnetLink.href = release.magnet;
+                magnetLink.textContent = "Magnet";
+                magnetLink.className = "link";
+                magnetLink.target = "_blank";
+                magnetLink.rel = "noopener noreferrer";
+                linksRow.appendChild(magnetLink);
 
-            const copyBtn = document.createElement("a");
-            copyBtn.textContent = "Copy";
-            copyBtn.className = "link";
-            copyBtn.href = "javascript:void(0)";
-            copyBtn.style.cssText = "margin-left: 0.75rem;";
-            copyBtn.addEventListener("click", async (ev) => {
-                ev.preventDefault();
-                try {
-                    await navigator.clipboard.writeText(release.magnet!);
-                    const prev = copyBtn.textContent;
-                    copyBtn.textContent = "Copied!";
-                    setTimeout(() => {
-                        copyBtn.textContent = prev;
-                    }, 1000);
-                } catch {
-                    window.prompt("Copy Magnet Link", release.magnet!);
-                }
-            });
+                const copyBtn = document.createElement("a");
+                copyBtn.textContent = "Copy";
+                copyBtn.className = "link";
+                copyBtn.href = "javascript:void(0)";
+                copyBtn.style.cssText = "margin-left: 0.75rem;";
+                copyBtn.addEventListener("click", async (ev) => {
+                    ev.preventDefault();
+                    try {
+                        await navigator.clipboard.writeText(release.magnet!);
+                        const prev = copyBtn.textContent;
+                        copyBtn.textContent = "Copied!";
+                        setTimeout(() => {
+                            copyBtn.textContent = prev;
+                        }, 1000);
+                    } catch {
+                        window.prompt("Copy Magnet Link", release.magnet!);
+                    }
+                });
+                linksRow.appendChild(copyBtn);
+            }
 
-            magnetRow.appendChild(magnetLink);
-            magnetRow.appendChild(copyBtn);
-            card.appendChild(magnetRow);
+            if (release.url) {
+                const urlLink = document.createElement("a");
+                urlLink.href = release.url;
+                urlLink.textContent = "Nyaa";
+                urlLink.className = "link";
+                urlLink.target = "_blank";
+                urlLink.rel = "noopener noreferrer";
+                urlLink.style.cssText = release.magnet ? "margin-left: 0.75rem;" : "";
+                linksRow.appendChild(urlLink);
+            }
+
+            card.appendChild(linksRow);
         }
 
         // Files info

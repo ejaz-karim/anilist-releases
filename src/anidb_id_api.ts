@@ -84,7 +84,8 @@ export class AnidbIdApi {
 
     async getAnimetoshoMetadata(
         anidbId: string | null = null,
-        anidbEpisodeId: string | null = null
+        anidbEpisodeId: string | null = null,
+        onProgress?: (count: number) => void
     ): Promise<NyaaMetadata[] | null> {
         if (!anidbId && !anidbEpisodeId) {
             throw new Error("Missing anidb id or anidb episode id");
@@ -120,7 +121,12 @@ export class AnidbIdApi {
                 if (nyaaMetadata === null) {
                     continue;
                 } else if (parseInt(nyaaMetadata["seeders"] || "0") > 0) {
+                    nyaaMetadata["url"] = nyaaUrl;
                     results.push(nyaaMetadata);
+                    // Call progress callback with current count
+                    if (onProgress) {
+                        onProgress(results.length);
+                    }
                 }
             } else {
                 continue;
@@ -141,7 +147,8 @@ export class AnidbIdApi {
 
     async getNyaaAnidbEpisode(
         anilistId: number,
-        episode: number | string
+        episode: number | string,
+        onProgress?: (count: number) => void
     ): Promise<NyaaMetadata[] | null> {
         const dict = await this.getAnidbId(anilistId);
         if (!dict) {
@@ -152,7 +159,7 @@ export class AnidbIdApi {
         for (const i of episodes) {
             if (i.episode === String(episode)) {
                 const anidbEpisodeId = i.anidb_episode_id;
-                const metadata = await this.getAnimetoshoMetadata(null, anidbEpisodeId);
+                const metadata = await this.getAnimetoshoMetadata(null, anidbEpisodeId, onProgress);
                 return metadata;
             }
         }

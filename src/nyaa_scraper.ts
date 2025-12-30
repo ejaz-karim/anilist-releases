@@ -19,6 +19,7 @@ export type NyaaFileEntry = FileItem | FolderItem;
 export interface NyaaMetadata {
     "release name": string;
     "magnet": string;
+    "url"?: string;
     "category"?: string;
     "date"?: string;
     "submitter"?: string;
