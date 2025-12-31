@@ -14,6 +14,9 @@
     "https://nyaa.si/*"
   ],
   "background": {
+    "scripts": [
+      "dist/background.js"
+    ],
     "service_worker": "dist/background.js"
   },
   "content_scripts": [
