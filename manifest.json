@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "anilist-releases",
-  "version": "0.2",
-  "description": "Adds Seadex and Nyaa release panels to AniList anime pages",
+  "version": "1.0.0",
+  "description": "Adds Seadex and Nyaa.si integration to AniList",
   "permissions": [
     "activeTab"
   ],
