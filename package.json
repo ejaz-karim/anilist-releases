@@ -1,9 +1,11 @@
 {
-  "dependencies": {
-    "@types/webextension-polyfill": "^0.12.3",
-    "webextension-polyfill": "^0.12.0"
-  },
   "scripts": {
     "build": "bun build src/index.ts src/background.ts --outdir dist"
+  },
+  "devDependencies": {
+    "@types/webextension-polyfill": "^0.12.4"
+  },
+  "dependencies": {
+    "webextension-polyfill": "^0.12.0"
   }
 }
