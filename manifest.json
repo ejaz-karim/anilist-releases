@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "anilist-releases",
+  "name": "Anilist Releases",
   "version": "1.0.0",
-  "description": "Adds Seadex and Nyaa integration to AniList",
+  "description": "Seadex and Nyaa integration to AniList",
   "permissions": [
     "activeTab"
   ],

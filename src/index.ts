@@ -1,11 +1,13 @@
 import { getAnilistId } from "./utility";
 import { SeadexApi } from "./seadex_api";
 import {
-    injectSeadexPanel,
+    renderSeadexPanel,
     ensureSeadexPanelPlacement,
-    injectNyaaPanel,
+    renderNyaaPanel,
     ensureNyaaPanelPlacement,
-} from "./inject_panel";
+    SEADEX_PANEL_ID,
+    NYAA_PANEL_ID,
+} from "./render_panels";
 
 const seadexApi = new SeadexApi();
 
@@ -24,26 +26,26 @@ async function tryInject(): Promise<void> {
     const isAnime = isAnimePage();
 
     if (!isAnime) {
-        document.querySelectorAll("#anilist-releases-panel, #anilist-nyaa-panel").forEach((n) => n.remove());
+        document.querySelectorAll(`#${SEADEX_PANEL_ID}, #${NYAA_PANEL_ID}`).forEach((node) => node.remove());
         return;
     }
 
     if (!id) return;
 
-    const existingSeadex = document.getElementById("anilist-releases-panel");
-    if (existingSeadex && existingSeadex.dataset.anilistId !== String(id)) {
-        existingSeadex.remove();
+    const seadexPanel = document.getElementById(SEADEX_PANEL_ID);
+    if (seadexPanel && seadexPanel.dataset.anilistId !== String(id)) {
+        seadexPanel.remove();
     }
 
-    const existingNyaa = document.getElementById("anilist-nyaa-panel");
-    if (existingNyaa && existingNyaa.dataset.anilistId !== String(id)) {
-        existingNyaa.remove();
+    const nyaaPanel = document.getElementById(NYAA_PANEL_ID);
+    if (nyaaPanel && nyaaPanel.dataset.anilistId !== String(id)) {
+        nyaaPanel.remove();
     }
 
-    if (document.getElementById("anilist-releases-panel")) {
+    if (document.getElementById(SEADEX_PANEL_ID)) {
         ensureSeadexPanelPlacement(id);
-        if (!document.getElementById("anilist-nyaa-panel")) {
-            await injectNyaaPanel(id);
+        if (!document.getElementById(NYAA_PANEL_ID)) {
+            await renderNyaaPanel(id);
         }
         return;
     }
@@ -57,7 +59,7 @@ async function tryInject(): Promise<void> {
     try {
         const data = await seadexApi.getReleaseData(id);
         if (data) {
-            injectSeadexPanel(data, id);
+            renderSeadexPanel(data, id);
             ensureSeadexPanelPlacement(id);
         }
     } catch (err) {
@@ -66,8 +68,8 @@ async function tryInject(): Promise<void> {
         inFlightId = null;
     }
 
-    if (!document.getElementById("anilist-nyaa-panel")) {
-        await injectNyaaPanel(id);
+    if (!document.getElementById(NYAA_PANEL_ID)) {
+        await renderNyaaPanel(id);
     }
 }
 

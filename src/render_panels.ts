@@ -2,33 +2,33 @@ import type { ReleaseData, ReleaseEntry } from "./seadex_api";
 import { AnidbIdApi, type Episode } from "./anidb_id_api";
 import type { NyaaMetadata, NyaaFileEntry } from "./nyaa_scraper";
 
-const PANEL_ID = "anilist-releases-panel";
-const NYAA_PANEL_ID = "anilist-nyaa-panel";
+export const SEADEX_PANEL_ID = "seadex-panel";
+export const NYAA_PANEL_ID = "nyaa-panel";
 
 let cachedEpisodes: Episode[] | null = null;
 let cachedAnilistId: number | null = null;
 
 // Anchor Finding
-function findAnchor(): HTMLElement | null {
+export function findAnchor(): HTMLElement | null {
     const mediaRoot = document.querySelector<HTMLElement>(".page-content .media.media-anime");
     if (!mediaRoot) return null;
 
     const reviews = mediaRoot.querySelector(".reviews");
     if (reviews) {
-        const wrap = reviews.closest<HTMLElement>(".grid-section-wrap");
-        if (wrap) return wrap;
+        const wrapper = reviews.closest<HTMLElement>(".grid-section-wrap");
+        if (wrapper) return wrapper;
     }
 
     const threads = mediaRoot.querySelector(".threads");
     if (threads) {
-        const wrap = threads.closest<HTMLElement>(".grid-section-wrap");
-        if (wrap) return wrap;
+        const wrapper = threads.closest<HTMLElement>(".grid-section-wrap");
+        if (wrapper) return wrapper;
     }
 
     return null;
 }
 
-function provisionalContainer(): HTMLElement | null {
+export function provisionalContainer(): HTMLElement | null {
     return document.querySelector<HTMLElement>(".page-content .media.media-anime");
 }
 
@@ -36,77 +36,77 @@ function linkifyAndSplitComparison(text: string): string {
     const lines = text.split(/\n+/);
     const urlRegex = /(https?:\/\/[^\s,]+)/g;
 
-    const out: string[] = [];
+    const output: string[] = [];
     for (const line of lines) {
         const urls = line.match(urlRegex);
         if (urls && urls.length > 1) {
-            urls.forEach((u) => {
-                out.push(`<a href="${u}" target="_blank" rel="noopener noreferrer">${u}</a>`);
+            urls.forEach((url) => {
+                output.push(`<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`);
             });
         } else {
             const replaced = line.replace(
                 urlRegex,
-                (u) => `<a href="${u}" target="_blank" rel="noopener noreferrer">${u}</a>`
+                (url) => `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`
             );
-            out.push(replaced);
+            output.push(replaced);
         }
     }
-    return out.join("<br>");
+    return output.join("<br>");
 }
 
 // Seadex Injection
-function placeSeadexPanel(panelContent: HTMLElement, anilistId: number): void {
-    document.querySelectorAll(`#${PANEL_ID}`).forEach((n) => n.remove());
+function mountSeadexPanel(content: HTMLElement, anilistId: number): void {
+    document.querySelectorAll(`#${SEADEX_PANEL_ID}`).forEach((node) => node.remove());
 
-    const wrap = document.createElement("div");
-    wrap.id = PANEL_ID;
-    wrap.className = "grid-section-wrap";
-    wrap.dataset.anilistId = String(anilistId);
-    wrap.dataset.anchored = "false";
+    const seadexPanel = document.createElement("div");
+    seadexPanel.id = SEADEX_PANEL_ID;
+    seadexPanel.className = "grid-section-wrap";
+    seadexPanel.dataset.anilistId = String(anilistId);
+    seadexPanel.dataset.anchored = "false";
 
     const inner = document.createElement("div");
     inner.className = "section";
-    inner.appendChild(panelContent);
-    wrap.appendChild(inner);
+    inner.appendChild(content);
+    seadexPanel.appendChild(inner);
 
     const anchor = findAnchor();
     if (anchor && anchor.parentElement) {
-        anchor.insertAdjacentElement("afterend", wrap);
-        wrap.dataset.anchored = "true";
+        anchor.insertAdjacentElement("afterend", seadexPanel);
+        seadexPanel.dataset.anchored = "true";
     } else {
         const provisional = provisionalContainer();
-        if (provisional) provisional.appendChild(wrap);
+        if (provisional) provisional.appendChild(seadexPanel);
     }
 }
 
 // Placement Enforcement
 export function ensureSeadexPanelPlacement(currentAniId: number | null): void {
-    const panel = document.getElementById(PANEL_ID) as HTMLElement | null;
-    if (!panel) return;
+    const seadexPanel = document.getElementById(SEADEX_PANEL_ID) as HTMLElement | null;
+    if (!seadexPanel) return;
 
-    if (currentAniId && panel.dataset.anilistId && panel.dataset.anilistId !== String(currentAniId)) {
+    if (currentAniId && seadexPanel.dataset.anilistId && seadexPanel.dataset.anilistId !== String(currentAniId)) {
         return;
     }
 
     const anchor = findAnchor();
     if (!anchor || !anchor.parentElement) return;
 
-    if (panel.previousElementSibling === anchor) {
-        panel.dataset.anchored = "true";
+    if (seadexPanel.previousElementSibling === anchor) {
+        seadexPanel.dataset.anchored = "true";
         return;
     }
 
-    anchor.insertAdjacentElement("afterend", panel);
-    panel.dataset.anchored = "true";
+    anchor.insertAdjacentElement("afterend", seadexPanel);
+    seadexPanel.dataset.anchored = "true";
 }
 
-export function injectSeadexPanel(data: ReleaseData, anilistId: number): void {
-    const container = document.createElement("div");
+export function renderSeadexPanel(data: ReleaseData, anilistId: number): void {
+    const content = document.createElement("div");
 
     const header = document.createElement("h2");
     header.textContent = "Seadex Releases";
     header.className = "section-header";
-    container.appendChild(header);
+    content.appendChild(header);
 
     const contentWrap = document.createElement("div");
     contentWrap.className = "content-wrap list";
@@ -122,10 +122,12 @@ export function injectSeadexPanel(data: ReleaseData, anilistId: number): void {
         meta.style.flex = "1 1 100%";
 
         if (data.comparison) {
-            const cmp = document.createElement("div");
-            cmp.innerHTML = `<strong>Comparison:</strong><br>${linkifyAndSplitComparison(data.comparison)}`;
-            cmp.style.marginBottom = "0.75rem";
-            meta.appendChild(cmp);
+            const comparisonContainer = document.createElement("div");
+            comparisonContainer.innerHTML = `<strong>Comparison:</strong><br>${linkifyAndSplitComparison(
+                data.comparison
+            )}`;
+            comparisonContainer.style.marginBottom = "0.75rem";
+            meta.appendChild(comparisonContainer);
         }
         if (data.notes) {
             const notes = document.createElement("div");
@@ -143,11 +145,11 @@ export function injectSeadexPanel(data: ReleaseData, anilistId: number): void {
     }
 
     data.releases.forEach((release: ReleaseEntry) => {
-        const wrap = document.createElement("div");
-        wrap.className = "wrap";
-        wrap.style.flex = "1 1 300px";
-        wrap.style.minWidth = "300px";
-        wrap.style.maxWidth = "48%";
+        const wrapper = document.createElement("div");
+        wrapper.className = "wrap";
+        wrapper.style.flex = "1 1 300px";
+        wrapper.style.minWidth = "300px";
+        wrapper.style.maxWidth = "48%";
 
         const card = document.createElement("div");
         card.className = "entry";
@@ -215,76 +217,88 @@ export function injectSeadexPanel(data: ReleaseData, anilistId: number): void {
             toggle.className = "link";
             toggle.style.cssText = "display: block; margin-top: 0.75rem;";
 
-            const epContainer = document.createElement("ul");
-            epContainer.style.cssText = "display: none; margin-top: 0.5rem; padding-left: 1.2rem; font-size: 0.85em;";
+            const episodeContainer = document.createElement("ul");
+            episodeContainer.style.cssText = "display: none; margin-top: 0.5rem; padding-left: 1.2rem; font-size: 0.85em;";
 
-            release["episode list"].forEach((ep) => {
+            release["episode list"].forEach((episode) => {
                 const li = document.createElement("li");
                 li.style.cssText = "margin: 0.25rem 0;";
-                li.textContent = `${ep.name ?? ""} — ${ep.size ?? ""}`;
-                epContainer.appendChild(li);
+                li.textContent = `${episode.name ?? ""} — ${episode.size ?? ""}`;
+                episodeContainer.appendChild(li);
             });
 
             toggle.addEventListener("click", () => {
-                const isHidden = epContainer.style.display === "none";
-                epContainer.style.display = isHidden ? "block" : "none";
+                const isHidden = episodeContainer.style.display === "none";
+                episodeContainer.style.display = isHidden ? "block" : "none";
                 toggle.textContent = isHidden ? "Hide Episodes" : "Show Episodes";
             });
 
             card.appendChild(toggle);
-            card.appendChild(epContainer);
+            card.appendChild(episodeContainer);
         }
 
-        wrap.appendChild(card);
-        contentWrap.appendChild(wrap);
+        wrapper.appendChild(card);
+        contentWrap.appendChild(wrapper);
     });
 
-    container.appendChild(contentWrap);
-    placeSeadexPanel(container, anilistId);
+    content.appendChild(contentWrap);
+    mountSeadexPanel(content, anilistId);
 }
 
 // Nyaa Injection
-function placeNyaaPanel(panel: HTMLElement, _anilistId: number): void {
-    const seadexPanel = document.getElementById(PANEL_ID);
+function mountNyaaPanel(content: HTMLElement, anilistId: number): void {
+    document.querySelectorAll(`#${NYAA_PANEL_ID}`).forEach((node) => node.remove());
+
+    const nyaaPanel = document.createElement("div");
+    nyaaPanel.id = NYAA_PANEL_ID;
+    nyaaPanel.className = "grid-section-wrap";
+    nyaaPanel.dataset.anilistId = String(anilistId);
+
+    const inner = document.createElement("div");
+    inner.className = "section";
+    inner.appendChild(content);
+    nyaaPanel.appendChild(inner);
+
+    const seadexPanel = document.getElementById(SEADEX_PANEL_ID);
     if (seadexPanel && seadexPanel.parentElement) {
-        panel.style.marginTop = "2rem";
-        seadexPanel.insertAdjacentElement("afterend", panel);
+        nyaaPanel.style.marginTop = "2rem";
+        seadexPanel.insertAdjacentElement("afterend", nyaaPanel);
         return;
     }
 
     const anchor = findAnchor();
     if (anchor && anchor.parentElement) {
-        anchor.insertAdjacentElement("afterend", panel);
+        anchor.insertAdjacentElement("afterend", nyaaPanel);
         return;
     }
 
     const provisional = provisionalContainer();
     if (provisional) {
-        provisional.appendChild(panel);
+        provisional.appendChild(nyaaPanel);
     }
 }
 
 export function ensureNyaaPanelPlacement(currentAniId: number | null): void {
-    const panel = document.getElementById(NYAA_PANEL_ID);
-    if (!panel) return;
+    const nyaaPanel = document.getElementById(NYAA_PANEL_ID);
+    if (!nyaaPanel) return;
 
-    if (currentAniId && panel.dataset.anilistId && panel.dataset.anilistId !== String(currentAniId)) {
+    if (currentAniId && nyaaPanel.dataset.anilistId && nyaaPanel.dataset.anilistId !== String(currentAniId)) {
         return;
     }
 
-    const seadexPanel = document.getElementById(PANEL_ID);
+    const seadexPanel = document.getElementById(SEADEX_PANEL_ID);
     if (seadexPanel && seadexPanel.parentElement) {
-        if (panel.previousElementSibling !== seadexPanel) {
-            panel.style.marginTop = "2rem";
-            seadexPanel.insertAdjacentElement("afterend", panel);
+        if (nyaaPanel.previousElementSibling !== seadexPanel) {
+            nyaaPanel.style.marginTop = "2rem";
+            seadexPanel.insertAdjacentElement("afterend", nyaaPanel);
         }
         return;
     }
 
     const anchor = findAnchor();
     if (anchor && anchor.parentElement) {
-        if (panel.previousElementSibling !== anchor) {
-            anchor.insertAdjacentElement("afterend", panel);
+        if (nyaaPanel.previousElementSibling !== anchor) {
+            anchor.insertAdjacentElement("afterend", nyaaPanel);
         }
     }
 }
@@ -299,8 +313,8 @@ async function loadEpisodeData(anilistId: number): Promise<Episode[]> {
     const result = await api.getAnidbId(anilistId);
 
     if (result && result.episodes) {
-        const regularEpisodes = result.episodes.filter((ep) => {
-            const epNum = parseInt(ep.episode, 10);
+        const regularEpisodes = result.episodes.filter((episode) => {
+            const epNum = parseInt(episode.episode, 10);
             return !isNaN(epNum) && epNum > 0;
         });
 
@@ -326,37 +340,31 @@ function populateEpisodeDropdown(select: HTMLSelectElement, episodes: Episode[])
     placeholder.selected = true;
     select.appendChild(placeholder);
 
-    for (const ep of episodes) {
+    for (const episode of episodes) {
         const option = document.createElement("option");
-        option.value = ep.episode;
-        const title = ep.title ? ` - ${ep.title}` : "";
-        option.textContent = `Episode ${ep.episode}${title}`;
+        option.value = episode.episode;
+        const title = episode.title ? ` - ${episode.title}` : "";
+        option.textContent = `Episode ${episode.episode}${title}`;
         select.appendChild(option);
     }
 }
 
-export async function injectNyaaPanel(anilistId: number): Promise<void> {
+export async function renderNyaaPanel(anilistId: number): Promise<void> {
     const existingPanel = document.getElementById(NYAA_PANEL_ID);
     if (existingPanel && existingPanel.dataset.anilistId !== String(anilistId)) {
         existingPanel.remove();
     }
     if (existingPanel) return;
 
-    const panel = document.createElement("div");
-    panel.id = NYAA_PANEL_ID;
-    panel.className = "grid-section-wrap";
-    panel.dataset.anilistId = String(anilistId);
-
-    const section = document.createElement("div");
-    section.className = "section";
+    const content = document.createElement("div");
 
     const header = document.createElement("h2");
     header.textContent = "Nyaa Releases";
     header.className = "section-header";
-    section.appendChild(header);
+    content.appendChild(header);
 
-    const content = document.createElement("div");
-    content.className = "content-wrap";
+    const contentWrap = document.createElement("div");
+    contentWrap.className = "content-wrap";
 
     const controls = document.createElement("div");
     controls.style.cssText = "display: flex; gap: 1rem; margin-bottom: 1rem; align-items: center; flex-wrap: wrap;";
@@ -419,16 +427,15 @@ export async function injectNyaaPanel(anilistId: number): Promise<void> {
     controls.appendChild(episodeSelect);
     controls.appendChild(searchBtn);
 
-    content.appendChild(controls);
+    contentWrap.appendChild(controls);
 
     const resultsArea = document.createElement("div");
     resultsArea.id = "nyaa-results";
-    content.appendChild(resultsArea);
+    contentWrap.appendChild(resultsArea);
 
-    section.appendChild(content);
-    panel.appendChild(section);
+    content.appendChild(contentWrap);
 
-    placeNyaaPanel(panel, anilistId);
+    mountNyaaPanel(content, anilistId);
 }
 
 async function handleNyaaSearch(anilistId: number): Promise<void> {
@@ -514,15 +521,15 @@ function renderFileTree(entries: NyaaFileEntry[], depth: number = 0): HTMLUListE
     return ul;
 }
 
-function displayNyaaResults(results: NyaaMetadata[], container: HTMLElement): void {
+function displayNyaaResults(results: NyaaMetadata[], content: HTMLElement): void {
     const contentWrap = document.createElement("div");
     contentWrap.className = "content-wrap";
     contentWrap.style.cssText = "display: flex; flex-wrap: wrap; gap: 1rem; margin-top: 1rem;";
 
     results.forEach((release) => {
-        const wrap = document.createElement("div");
-        wrap.className = "wrap";
-        wrap.style.cssText = "flex: 1 1 300px; min-width: 300px; max-width: 48%;";
+        const wrapper = document.createElement("div");
+        wrapper.className = "wrap";
+        wrapper.style.cssText = "flex: 1 1 300px; min-width: 300px; max-width: 48%;";
 
         const card = document.createElement("div");
         card.className = "entry";
@@ -611,10 +618,11 @@ function displayNyaaResults(results: NyaaMetadata[], container: HTMLElement): vo
             card.appendChild(fileContainer);
         }
 
-        wrap.appendChild(card);
-        contentWrap.appendChild(wrap);
+        wrapper.appendChild(card);
+        contentWrap.appendChild(wrapper);
     });
 
-    container.innerHTML = "";
-    container.appendChild(contentWrap);
+    content.innerHTML = "";
+    content.appendChild(contentWrap);
 }
+
