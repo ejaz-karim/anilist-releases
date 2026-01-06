@@ -3,9 +3,7 @@
   "name": "AniList Releases",
   "version": "1.0.0",
   "description": "Seadex and Nyaa integration to AniList entries.",
-  "permissions": [
-    "activeTab"
-  ],
+  "permissions": [],
   "icons": {
     "128": "icon.png"
   },
