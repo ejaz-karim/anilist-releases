@@ -1,4 +1,4 @@
-# Anilist Releases
+# AniList Releases
 Seadex and Nyaa integration to AniList entries.
 
 ## Building from source

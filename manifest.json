@@ -1,11 +1,14 @@
 {
   "manifest_version": 3,
-  "name": "Anilist Releases",
+  "name": "AniList Releases",
   "version": "1.0.0",
   "description": "Seadex and Nyaa integration to AniList entries.",
   "permissions": [
     "activeTab"
   ],
+  "icons": {
+    "128": "icon.png"
+  },
   "host_permissions": [
     "https://releases.moe/*",
     "https://api.ani.zip/*",
