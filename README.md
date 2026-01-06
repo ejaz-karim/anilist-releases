@@ -1,5 +1,5 @@
 # Anilist Releases
-Seadex and Nyaa integration to AniList entry pages.
+Seadex and Nyaa integration to AniList entries.
 
 ## Building from source
 Install bun, then run the command
