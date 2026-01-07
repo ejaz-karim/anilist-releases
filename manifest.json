@@ -30,5 +30,10 @@
       ],
       "run_at": "document_idle"
     }
-  ]
+  ],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "{69d2101d-157e-4136-9cf4-4880f53ce95d}"
+    }
+  }
 }
