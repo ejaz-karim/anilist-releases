@@ -2,4 +2,4 @@
 Seadex and Nyaa integration to AniList entries.
 
 ## Building from source
-Install bun, then run the command ```bun install``` and ```bun run build``` in the project directory.
+Install [Bun](https://bun.com/) (any version works), Next run the command ```bun install``` then ```bun run build``` in the project directory.
