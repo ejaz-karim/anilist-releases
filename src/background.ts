@@ -29,5 +29,3 @@ browser.runtime.onMessage.addListener((message: unknown) => {
     }
     return undefined;
 });
-
-console.log("[Background] Background script loaded");

@@ -32,26 +32,58 @@ export function provisionalContainer(): HTMLElement | null {
     return document.querySelector<HTMLElement>(".page-content .media.media-anime");
 }
 
-function linkifyAndSplitComparison(text: string): string {
+function appendTextWithLineBreaks(parent: HTMLElement, text: string): void {
+    const lines = text.split(/\n+/);
+    lines.forEach((line, index) => {
+        parent.appendChild(document.createTextNode(line));
+        if (index < lines.length - 1) {
+            parent.appendChild(document.createElement("br"));
+        }
+    });
+}
+
+function appendLinkifiedComparison(parent: HTMLElement, text: string): void {
     const lines = text.split(/\n+/);
     const urlRegex = /(https?:\/\/[^\s,]+)/g;
 
-    const output: string[] = [];
-    for (const line of lines) {
+    lines.forEach((line, lineIndex) => {
         const urls = line.match(urlRegex);
         if (urls && urls.length > 1) {
-            urls.forEach((url) => {
-                output.push(`<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`);
+            urls.forEach((url, urlIndex) => {
+                const link = document.createElement("a");
+                link.href = url;
+                link.textContent = url;
+                link.target = "_blank";
+                link.rel = "noopener noreferrer";
+                parent.appendChild(link);
+                if (urlIndex < urls.length - 1) {
+                    parent.appendChild(document.createElement("br"));
+                }
             });
         } else {
-            const replaced = line.replace(
-                urlRegex,
-                (url) => `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`
-            );
-            output.push(replaced);
+            let lastIndex = 0;
+            let match;
+            const regex = new RegExp(urlRegex);
+            while ((match = regex.exec(line)) !== null) {
+                if (match.index > lastIndex) {
+                    parent.appendChild(document.createTextNode(line.slice(lastIndex, match.index)));
+                }
+                const link = document.createElement("a");
+                link.href = match[0];
+                link.textContent = match[0];
+                link.target = "_blank";
+                link.rel = "noopener noreferrer";
+                parent.appendChild(link);
+                lastIndex = regex.lastIndex;
+            }
+            if (lastIndex < line.length) {
+                parent.appendChild(document.createTextNode(line.slice(lastIndex)));
+            }
         }
-    }
-    return output.join("<br>");
+        if (lineIndex < lines.length - 1) {
+            parent.appendChild(document.createElement("br"));
+        }
+    });
 }
 
 // Seadex Injection
@@ -123,21 +155,30 @@ export function renderSeadexPanel(data: ReleaseData, anilistId: number): void {
 
         if (data.comparison) {
             const comparisonContainer = document.createElement("div");
-            comparisonContainer.innerHTML = `<strong>Comparison:</strong><br>${linkifyAndSplitComparison(
-                data.comparison
-            )}`;
+            const compLabel = document.createElement("strong");
+            compLabel.textContent = "Comparison:";
+            comparisonContainer.appendChild(compLabel);
+            comparisonContainer.appendChild(document.createElement("br"));
+            appendLinkifiedComparison(comparisonContainer, data.comparison);
             comparisonContainer.style.marginBottom = "0.75rem";
             meta.appendChild(comparisonContainer);
         }
         if (data.notes) {
             const notes = document.createElement("div");
-            notes.innerHTML = `<strong>Notes:</strong> ${data.notes.replace(/\n/g, "<br>")}`;
+            const notesLabel = document.createElement("strong");
+            notesLabel.textContent = "Notes:";
+            notes.appendChild(notesLabel);
+            notes.appendChild(document.createTextNode(" "));
+            appendTextWithLineBreaks(notes, data.notes);
             notes.style.marginBottom = "0.75rem";
             meta.appendChild(notes);
         }
         if (data["theoretical best"]) {
             const best = document.createElement("div");
-            best.innerHTML = `<strong>Theoretical Best:</strong> ${data["theoretical best"]}`;
+            const bestLabel = document.createElement("strong");
+            bestLabel.textContent = "Theoretical Best:";
+            best.appendChild(bestLabel);
+            best.appendChild(document.createTextNode(` ${data["theoretical best"]}`));
             meta.appendChild(best);
         }
 
@@ -160,20 +201,29 @@ export function renderSeadexPanel(data: ReleaseData, anilistId: number): void {
         if (release["is best"]) allFlags.push("Best Release");
         if (release["private tracker"]) allFlags.push("Private Tracker");
 
-        const flagsLine = allFlags.length
-            ? `<div style="color:#3fa9f5; margin-bottom:8px;">${allFlags.join(" • ")}</div>`
-            : "";
-
         const rawUrl = release.url ?? "";
 
-        card.innerHTML = `
-            <div style="font-weight:600; margin-bottom:4px;">
-                ${release["release group"] ?? ""}
-            </div>
-            <div>${release.tracker ?? ""}</div>
-            <div><em>${release["file size"] ?? ""}</em></div>
-            ${flagsLine}
-        `;
+        const groupDiv = document.createElement("div");
+        groupDiv.style.cssText = "font-weight:600; margin-bottom:4px;";
+        groupDiv.textContent = release["release group"] ?? "";
+        card.appendChild(groupDiv);
+
+        const trackerDiv = document.createElement("div");
+        trackerDiv.textContent = release.tracker ?? "";
+        card.appendChild(trackerDiv);
+
+        const sizeDiv = document.createElement("div");
+        const sizeEm = document.createElement("em");
+        sizeEm.textContent = release["file size"] ?? "";
+        sizeDiv.appendChild(sizeEm);
+        card.appendChild(sizeDiv);
+
+        if (allFlags.length) {
+            const flagsDiv = document.createElement("div");
+            flagsDiv.style.cssText = "color:#3fa9f5; margin-bottom:8px;";
+            flagsDiv.textContent = allFlags.join(" • ");
+            card.appendChild(flagsDiv);
+        }
 
         if (rawUrl) {
             const row = document.createElement("div");
@@ -331,7 +381,7 @@ async function loadEpisodeData(anilistId: number): Promise<Episode[]> {
 }
 
 function populateEpisodeDropdown(select: HTMLSelectElement, episodes: Episode[]): void {
-    select.innerHTML = "";
+    select.replaceChildren();
 
     const placeholder = document.createElement("option");
     placeholder.value = "";
@@ -406,7 +456,9 @@ export async function renderNyaaPanel(anilistId: number): Promise<void> {
         if (episodeRadio.checked) {
             episodeSelect.style.display = "block";
             if (!cachedEpisodes || cachedAnilistId !== anilistId) {
-                episodeSelect.innerHTML = "<option>Loading...</option>";
+                const loadingOption = document.createElement("option");
+                loadingOption.textContent = "Loading...";
+                episodeSelect.replaceChildren(loadingOption);
                 const episodes = await loadEpisodeData(anilistId);
                 populateEpisodeDropdown(episodeSelect, episodes);
             }
@@ -452,7 +504,11 @@ async function handleNyaaSearch(anilistId: number): Promise<void> {
     const selectedEpisode = episodeSelect?.value;
 
     if (!fullRelease && !selectedEpisode) {
-        resultsArea.innerHTML = '<p style="color: #ff6b6b; margin-top: 1rem;">Please select an episode</p>';
+        resultsArea.textContent = "";
+        const errorMsg = document.createElement("p");
+        errorMsg.style.cssText = "color: #ff6b6b; margin-top: 1rem;";
+        errorMsg.textContent = "Please select an episode";
+        resultsArea.appendChild(errorMsg);
         searchBtn.disabled = false;
         searchBtn.textContent = "Start Search";
         return;
@@ -461,7 +517,7 @@ async function handleNyaaSearch(anilistId: number): Promise<void> {
     const statusText = document.createElement("p");
     statusText.style.marginTop = "1rem";
     statusText.textContent = "Searching Nyaa... Found 0 sources";
-    resultsArea.innerHTML = "";
+    resultsArea.textContent = "";
     resultsArea.appendChild(statusText);
 
     const updateProgress = (count: number) => {
@@ -475,7 +531,11 @@ async function handleNyaaSearch(anilistId: number): Promise<void> {
         if (fullRelease) {
             const mapping = await anidbApi.getAnidbId(anilistId);
             if (!mapping) {
-                resultsArea.innerHTML = '<p style="color: #ff6b6b; margin-top: 1rem;">Failed to get AniDB mapping</p>';
+                resultsArea.textContent = "";
+                const errorP = document.createElement("p");
+                errorP.style.cssText = "color: #ff6b6b; margin-top: 1rem;";
+                errorP.textContent = "Failed to get AniDB mapping";
+                resultsArea.appendChild(errorP);
                 return;
             }
             results = await anidbApi.getAnimetoshoMetadata(mapping.anidb_id, null, updateProgress);
@@ -484,14 +544,22 @@ async function handleNyaaSearch(anilistId: number): Promise<void> {
         }
 
         if (!results || results.length === 0) {
-            resultsArea.innerHTML = '<p style="margin-top: 1rem;">No releases found with active seeders</p>';
+            resultsArea.textContent = "";
+            const noResultsP = document.createElement("p");
+            noResultsP.style.marginTop = "1rem";
+            noResultsP.textContent = "No releases found with active seeders";
+            resultsArea.appendChild(noResultsP);
             return;
         }
 
         displayNyaaResults(results, resultsArea);
     } catch (error) {
         console.error("Nyaa search error:", error);
-        resultsArea.innerHTML = '<p style="color: #ff6b6b; margin-top: 1rem;">Error searching Nyaa</p>';
+        resultsArea.textContent = "";
+        const errorP = document.createElement("p");
+        errorP.style.cssText = "color: #ff6b6b; margin-top: 1rem;";
+        errorP.textContent = "Error searching Nyaa";
+        resultsArea.appendChild(errorP);
     } finally {
         searchBtn.disabled = false;
         searchBtn.textContent = "Start Search";
@@ -622,7 +690,7 @@ function displayNyaaResults(results: NyaaMetadata[], content: HTMLElement): void
         contentWrap.appendChild(wrapper);
     });
 
-    content.innerHTML = "";
+    content.textContent = "";
     content.appendChild(contentWrap);
 }
 
