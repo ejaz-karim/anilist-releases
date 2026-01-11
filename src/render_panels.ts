@@ -142,160 +142,266 @@ export function renderSeadexPanel(data: ReleaseData, anilistId: number): void {
 
     const contentWrap = document.createElement("div");
     contentWrap.className = "content-wrap list";
-    contentWrap.style.display = "flex";
-    contentWrap.style.flexWrap = "wrap";
-    contentWrap.style.gap = "1rem";
+    contentWrap.style.cssText = "display: flex; flex-direction: column; gap: 1rem;";
 
-    if (data.comparison || data.notes || data["theoretical best"]) {
-        const meta = document.createElement("div");
-        meta.className = "wrap entry";
-        meta.style.padding = "1rem";
-        meta.style.marginBottom = "1rem";
-        meta.style.flex = "1 1 100%";
+    // Display Meta Info as separate cards
+    const metaContainer = document.createElement("div");
+    metaContainer.style.cssText = "display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1rem;";
 
-        if (data.comparison) {
-            const comparisonContainer = document.createElement("div");
-            const compLabel = document.createElement("strong");
-            compLabel.textContent = "Comparison:";
-            comparisonContainer.appendChild(compLabel);
-            comparisonContainer.appendChild(document.createElement("br"));
-            appendLinkifiedComparison(comparisonContainer, data.comparison);
-            comparisonContainer.style.marginBottom = "0.75rem";
-            meta.appendChild(comparisonContainer);
-        }
-        if (data.notes) {
-            const notes = document.createElement("div");
-            const notesLabel = document.createElement("strong");
-            notesLabel.textContent = "Notes:";
-            notes.appendChild(notesLabel);
-            notes.appendChild(document.createTextNode(" "));
-            appendTextWithLineBreaks(notes, data.notes);
-            notes.style.marginBottom = "0.75rem";
-            meta.appendChild(notes);
-        }
-        if (data["theoretical best"]) {
-            const best = document.createElement("div");
-            const bestLabel = document.createElement("strong");
-            bestLabel.textContent = "Theoretical Best:";
-            best.appendChild(bestLabel);
-            best.appendChild(document.createTextNode(` ${data["theoretical best"]}`));
-            meta.appendChild(best);
-        }
-
-        contentWrap.appendChild(meta);
+    if (data.comparison) {
+        metaContainer.appendChild(createMetaCard("Comparison", data.comparison, true));
     }
+    if (data.notes) {
+        metaContainer.appendChild(createMetaCard("Notes", data.notes));
+    }
+    if (data["theoretical best"]) {
+        metaContainer.appendChild(createMetaCard("Theoretical Best", data["theoretical best"]));
+    }
+    contentWrap.appendChild(metaContainer);
+
+    // Display Releases as stacked cards
+    const resultsContainer = document.createElement("div");
+    resultsContainer.style.cssText = "display: flex; flex-direction: column; gap: 0.5rem;";
 
     data.releases.forEach((release: ReleaseEntry) => {
-        const wrapper = document.createElement("div");
-        wrapper.className = "wrap";
-        wrapper.style.flex = "1 1 300px";
-        wrapper.style.minWidth = "300px";
-        wrapper.style.maxWidth = "48%";
-
-        const card = document.createElement("div");
-        card.className = "entry";
-        card.style.padding = "1rem";
-
-        const allFlags: string[] = [];
-        if (release["dual audio"]) allFlags.push("Dual Audio");
-        if (release["is best"]) allFlags.push("Best Release");
-        if (release["private tracker"]) allFlags.push("Private Tracker");
-        if (release["tags"] && release["tags"].length > 0) {
-            allFlags.push(...release["tags"]);
-        }
-
-        const rawUrl = release.url ?? "";
-
-        const groupDiv = document.createElement("div");
-        groupDiv.style.cssText = "font-weight:600; margin-bottom:4px;";
-        groupDiv.textContent = release["release group"] ?? "";
-        card.appendChild(groupDiv);
-
-        const trackerDiv = document.createElement("div");
-        trackerDiv.textContent = release.tracker ?? "";
-        card.appendChild(trackerDiv);
-
-        const sizeDiv = document.createElement("div");
-        const sizeEm = document.createElement("em");
-        sizeEm.textContent = release["file size"] ?? "";
-        sizeDiv.appendChild(sizeEm);
-        card.appendChild(sizeDiv);
-
-        if (allFlags.length) {
-            const flagsDiv = document.createElement("div");
-            flagsDiv.style.cssText = "color:#3fa9f5; margin-bottom:8px;";
-            flagsDiv.textContent = allFlags.join(" • ");
-            card.appendChild(flagsDiv);
-        }
-
-        if (rawUrl) {
-            const row = document.createElement("div");
-            row.style.marginTop = "0.4rem";
-
-            if (/^https?:\/\//i.test(rawUrl)) {
-                const link = document.createElement("a");
-                link.href = rawUrl;
-                link.textContent = "Url";
-                link.target = "_blank";
-                link.rel = "noopener noreferrer";
-                link.className = "link";
-                row.appendChild(link);
-            } else {
-                const copyBtn = document.createElement("a");
-                copyBtn.textContent = "Copy";
-                copyBtn.className = "link";
-                copyBtn.href = "javascript:void(0)";
-                copyBtn.addEventListener("click", async (ev) => {
-                    ev.preventDefault();
-                    try {
-                        await navigator.clipboard.writeText(rawUrl);
-                        const prev = copyBtn.textContent;
-                        copyBtn.textContent = "Copied!";
-                        setTimeout(() => {
-                            copyBtn.textContent = prev;
-                        }, 1000);
-                    } catch {
-                        window.prompt("Copy URL", rawUrl);
-                    }
-                });
-                row.appendChild(copyBtn);
-            }
-
-            card.appendChild(row);
-        }
-
-        if (release["episode list"]?.length) {
-            const toggle = document.createElement("a");
-            toggle.textContent = "Show Episodes";
-            toggle.className = "link";
-            toggle.style.cssText = "display: block; margin-top: 0.75rem;";
-
-            const episodeContainer = document.createElement("ul");
-            episodeContainer.style.cssText = "display: none; margin-top: 0.5rem; padding-left: 1.2rem; font-size: 0.85em;";
-
-            release["episode list"].forEach((episode) => {
-                const li = document.createElement("li");
-                li.style.cssText = "margin: 0.25rem 0;";
-                li.textContent = `${episode.name ?? ""} — ${episode.size ?? ""}`;
-                episodeContainer.appendChild(li);
-            });
-
-            toggle.addEventListener("click", () => {
-                const isHidden = episodeContainer.style.display === "none";
-                episodeContainer.style.display = isHidden ? "block" : "none";
-                toggle.textContent = isHidden ? "Hide Episodes" : "Show Episodes";
-            });
-
-            card.appendChild(toggle);
-            card.appendChild(episodeContainer);
-        }
-
-        wrapper.appendChild(card);
-        contentWrap.appendChild(wrapper);
+        resultsContainer.appendChild(createSeadexCard(release));
     });
 
+    contentWrap.appendChild(resultsContainer);
     content.appendChild(contentWrap);
+
     mountSeadexPanel(content, anilistId);
+}
+
+function createMetaCard(title: string, contentText: string, isComparison: boolean = false): HTMLElement {
+    const card = document.createElement("div");
+    card.className = "seadex-meta-card";
+    card.style.cssText = `
+        border: 1px solid rgba(var(--color-foreground-rgb, 92,114,138), 0.3);
+        border-radius: 6px;
+        overflow: hidden;
+        background: rgba(var(--color-background-rgb), 0.6);
+    `;
+
+    const header = document.createElement("div");
+    header.style.cssText = `
+        display: flex;
+        align-items: center;
+        padding: 0.75rem 1rem;
+        gap: 0.75rem;
+        background: rgba(var(--color-foreground-rgb, 92,114,138), 0.05);
+        cursor: pointer;
+    `;
+
+    const titleSpan = document.createElement("span");
+    titleSpan.style.cssText = "flex: 1; font-weight: 600;";
+    titleSpan.textContent = title;
+
+    const expandBtn = document.createElement("span");
+    expandBtn.textContent = "-";
+    expandBtn.style.cssText = `
+        font-size: 1.4em;
+        font-weight: 600;
+        width: 28px;
+        height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 4px;
+        background: rgba(var(--color-foreground-rgb, 92,114,138), 0.1);
+    `;
+
+    header.appendChild(titleSpan);
+    header.appendChild(expandBtn);
+
+    const contentDiv = document.createElement("div");
+    contentDiv.style.cssText = "display: block; padding: 1rem; border-top: 1px solid rgba(var(--color-foreground-rgb, 92,114,138), 0.2); font-size: 0.9em; line-height: 1.5;";
+
+    if (isComparison) {
+        appendLinkifiedComparison(contentDiv, contentText);
+    } else {
+        appendTextWithLineBreaks(contentDiv, contentText);
+    }
+
+    header.addEventListener("click", () => {
+        const isHidden = contentDiv.style.display === "none";
+        contentDiv.style.display = isHidden ? "block" : "none";
+        expandBtn.textContent = isHidden ? "-" : "+";
+    });
+
+    card.appendChild(header);
+    card.appendChild(contentDiv);
+    return card;
+}
+
+
+function createSeadexCard(release: ReleaseEntry): HTMLElement {
+    const card = document.createElement("div");
+    card.className = "seadex-result-card";
+    card.style.cssText = `
+        border: 1px solid rgba(var(--color-foreground-rgb, 92,114,138), 0.3);
+        border-radius: 6px;
+        overflow: hidden;
+        transition: all 0.2s ease;
+    `;
+
+    // Header
+    const header = document.createElement("div");
+    header.style.cssText = `
+        display: flex;
+        align-items: center;
+        padding: 0.75rem 1rem;
+        gap: 0.75rem;
+        background: rgba(var(--color-foreground-rgb, 92,114,138), 0.05);
+        cursor: pointer;
+    `;
+
+    // Release Group (Left aligned)
+    // Release Group (Left aligned)
+    const titleContainer = document.createElement("div");
+    titleContainer.style.cssText = "flex: 1; display: flex; align-items: center; overflow: hidden; gap: 0.5rem;";
+
+    const title = document.createElement("span");
+    // Flex shrink 0 on title to prioritize it, or let it shrink? User implied overlap worry.
+    // Usually title is most important. Let's let flags shrink first.
+    // Changing title to flex-shrink: 0 might push flags out.
+    // Let's keep title flexible but give it a title attribute.
+    title.style.cssText = "font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 0; max-width: 80%;";
+    title.textContent = release["release group"] || "Unknown Group";
+    title.title = release["release group"] || "";
+
+    titleContainer.appendChild(title);
+
+    // Flags/Tags (Next to title)
+    const allFlags: string[] = [];
+    if (release["dual audio"]) allFlags.push("Dual Audio");
+    if (release["is best"]) allFlags.push("Best Release");
+    if (release["private tracker"]) allFlags.push("Private Tracker");
+    if (release["tags"] && release["tags"].length > 0) {
+        allFlags.push(...release["tags"]);
+    }
+
+    if (allFlags.length > 0) {
+        const flagsSpan = document.createElement("span");
+        flagsSpan.style.cssText = "font-size: 0.85em; color: #3fa9f5; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 1; min-width: 0;";
+        flagsSpan.textContent = allFlags.join(" • ");
+        flagsSpan.title = allFlags.join(" • ");
+        titleContainer.appendChild(flagsSpan);
+    }
+
+    // Right aligned container
+    const actionsContainer = document.createElement("div");
+    actionsContainer.style.cssText = "display: flex; align-items: center; gap: 0.75rem; margin-left: auto; flex-shrink: 0;";
+
+    const trackerSpan = document.createElement("span");
+    trackerSpan.style.cssText = "margin-right: 0.5rem; font-weight: 600;";
+    trackerSpan.textContent = release.tracker || "";
+    trackerSpan.title = release.tracker || "";
+    if (release.tracker) actionsContainer.appendChild(trackerSpan);
+
+    // Size
+    const sizeSpan = document.createElement("span");
+    sizeSpan.style.cssText = "color: #4caf50; font-weight: 600; min-width: 80px; text-align: right; margin-right: 0.5rem;";
+    sizeSpan.textContent = release["file size"] || "";
+    actionsContainer.appendChild(sizeSpan);
+
+    // URL Button
+    const rawUrl = release.url || "";
+    if (rawUrl) {
+        if (/^https?:\/\//i.test(rawUrl)) {
+            const urlBtn = document.createElement("a");
+            urlBtn.innerHTML = "🔗";
+            urlBtn.title = "Open URL";
+            urlBtn.href = rawUrl;
+            urlBtn.target = "_blank";
+            urlBtn.rel = "noopener noreferrer";
+            urlBtn.style.cssText = "text-decoration: none; font-size: 1.1em; padding: 0.35rem 0.5rem; background: #02A9FF; border-radius: 4px; display: inline-block;";
+            urlBtn.addEventListener("click", (ev) => ev.stopPropagation());
+            actionsContainer.appendChild(urlBtn);
+        } else {
+            const copyBtn = document.createElement("button");
+            copyBtn.innerHTML = "📋";
+            copyBtn.title = "Copy URL";
+            copyBtn.style.cssText = "background: #02A9FF; border: none; cursor: pointer; font-size: 1.1em; padding: 0.35rem 0.5rem; border-radius: 4px; color: white;";
+            copyBtn.addEventListener("click", async (ev) => {
+                ev.stopPropagation();
+                try {
+                    await navigator.clipboard.writeText(rawUrl);
+                    copyBtn.innerHTML = "✓";
+                    setTimeout(() => { copyBtn.innerHTML = "📋"; }, 1000);
+                } catch {
+                    window.prompt("Copy URL", rawUrl);
+                }
+            });
+            actionsContainer.appendChild(copyBtn);
+        }
+    }
+
+    // Expand Button
+    const expandBtn = document.createElement("span");
+    expandBtn.textContent = "+";
+    expandBtn.style.cssText = `
+        font-size: 1.4em;
+        font-weight: 600;
+        width: 28px;
+        height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 4px;
+        background: rgba(var(--color-foreground-rgb, 92,114,138), 0.1);
+    `;
+    actionsContainer.appendChild(expandBtn);
+
+    header.appendChild(titleContainer);
+    header.appendChild(actionsContainer);
+
+    // Details Section
+    const details = document.createElement("div");
+    details.className = "seadex-card-details";
+    details.style.cssText = "display: none; padding: 0.75rem 1rem; border-top: 1px solid rgba(var(--color-foreground-rgb, 92,114,138), 0.2); font-size: 0.9em;";
+
+
+    if (release["episode list"]?.length) {
+        const episodesHeader = document.createElement("div");
+        episodesHeader.textContent = "Episodes:";
+        episodesHeader.style.cssText = "font-weight: 600; margin-bottom: 0.5rem; margin-top: 0.5rem;";
+        details.appendChild(episodesHeader);
+
+        const episodeList = document.createElement("ul");
+        episodeList.style.cssText = "list-style: none; padding-left: 0.5rem; margin: 0;";
+
+        release["episode list"].forEach((ep) => {
+            const li = document.createElement("li");
+            li.style.cssText = "padding: 0.25rem 0; border-bottom: 1px solid rgba(var(--color-foreground-rgb, 92,114,138), 0.1); display: flex; justify-content: space-between;";
+
+            const nameSpan = document.createElement("span");
+            nameSpan.textContent = `📄 ${ep.name || "Unknown Episode"}`;
+
+            const sizeSize = document.createElement("span");
+            sizeSize.textContent = ep.size || "";
+            sizeSize.style.opacity = "0.8";
+
+            li.appendChild(nameSpan);
+            li.appendChild(sizeSize);
+            episodeList.appendChild(li);
+        });
+        details.appendChild(episodeList);
+    }
+
+
+
+    card.appendChild(header);
+    card.appendChild(details);
+
+    // Expand Logic
+    header.addEventListener("click", () => {
+        const isHidden = details.style.display === "none";
+        details.style.display = isHidden ? "block" : "none";
+        expandBtn.textContent = isHidden ? "-" : "+";
+    });
+
+    return card;
 }
 
 // Nyaa Injection
@@ -713,7 +819,7 @@ async function handleNyaaSearchStreaming(anilistId: number): Promise<void> {
             resultsArea.textContent = "";
             const errorP = document.createElement("p");
             errorP.style.cssText = "color: #E85D75; margin-top: 1rem;";
-            errorP.textContent = "Error searching Nyaa";
+            errorP.textContent = "Error searching Nyaa (Animetosho.org most likely hasn't indexed any releases)";
             resultsArea.appendChild(errorP);
         }
     } finally {
@@ -733,7 +839,8 @@ function createResultCard(release: NyaaMetadata, index: number): HTMLElement {
         border-radius: 6px;
         overflow: hidden;
         transition: all 0.2s ease;
-        cursor: pointer;
+        overflow: hidden;
+        transition: all 0.2s ease;
     `;
 
     // Header row (always visible)
@@ -804,9 +911,9 @@ function createResultCard(release: NyaaMetadata, index: number): HTMLElement {
     const actionsContainer = document.createElement("div");
     actionsContainer.style.cssText = "display: flex; align-items: center; gap: 0.75rem; margin-left: auto; flex-shrink: 0;";
 
+    actionsContainer.appendChild(seedersSpan); // Seeders first (left of buttons)
     actionsContainer.appendChild(magnetBtn);
     actionsContainer.appendChild(urlBtn);
-    actionsContainer.appendChild(seedersSpan);
     actionsContainer.appendChild(expandBtn);
 
     header.appendChild(title);
@@ -875,8 +982,9 @@ function createResultCard(release: NyaaMetadata, index: number): HTMLElement {
     card.appendChild(header);
     card.appendChild(details);
 
-    // Click anywhere to expand/collapse
-    card.addEventListener("click", () => {
+    // Click header to expand/collapse (restricted from whole card)
+    header.style.cursor = "pointer";
+    header.addEventListener("click", () => {
         const isHidden = details.style.display === "none";
         details.style.display = isHidden ? "block" : "none";
         expandBtn.textContent = isHidden ? "−" : "+";
