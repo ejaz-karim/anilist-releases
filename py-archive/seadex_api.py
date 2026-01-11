@@ -33,6 +33,7 @@ class SeadexApi:
             url = entry.get("url")
             dual_audio = entry.get("dualAudio")
             is_best = entry.get("isBest")
+            tags = entry.get("tags")
 
             files = entry.get("files")
             total_file_size = 0
@@ -60,8 +61,9 @@ class SeadexApi:
                 "dual audio": dual_audio,
                 "is best": is_best,
                 "private tracker": private_tracker,
+                "tags": tags,
                 "file size": total_file_size_format,
-                "episode list": episode_list,
+                "episode list": episode_list
             }
 
             release_dict["releases"].append(entry_dict)
