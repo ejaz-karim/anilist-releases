@@ -11,6 +11,7 @@ export interface ReleaseEntry {
     "is best": boolean;
     "private tracker": boolean;
     "file size": string;
+    "tags": string[];
     "episode list": EpisodeEntry[];
 }
 
@@ -59,6 +60,7 @@ export class SeadexApi {
             const url = entry.url || "";
             const dualAudio = entry.dualAudio || false;
             const isBest = entry.isBest || false;
+            const tags = entry.tags || [];
 
             const files = entry.files || [];
             let totalFileSize = 0;
@@ -84,8 +86,9 @@ export class SeadexApi {
                 "dual audio": dualAudio,
                 "is best": isBest,
                 "private tracker": privateTracker,
+                "tags": tags,
                 "file size": totalFileSizeFormat,
-                "episode list": episodeList,
+                "episode list": episodeList
             };
 
             releaseDict["releases"].push(entryDict);

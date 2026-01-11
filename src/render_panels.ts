@@ -200,6 +200,9 @@ export function renderSeadexPanel(data: ReleaseData, anilistId: number): void {
         if (release["dual audio"]) allFlags.push("Dual Audio");
         if (release["is best"]) allFlags.push("Best Release");
         if (release["private tracker"]) allFlags.push("Private Tracker");
+        if (release["tags"] && release["tags"].length > 0) {
+            allFlags.push(...release["tags"]);
+        }
 
         const rawUrl = release.url ?? "";
 
