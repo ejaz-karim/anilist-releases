@@ -485,37 +485,33 @@ export async function renderNyaaPanel(anilistId: number): Promise<void> {
     const row1 = document.createElement("div");
     row1.style.cssText = "display: flex; gap: 1rem; margin-bottom: 0.75rem; align-items: center; flex-wrap: wrap;";
 
-    const fullReleasesRadio = document.createElement("input");
-    fullReleasesRadio.type = "radio";
-    fullReleasesRadio.id = "nyaa-full-releases";
-    fullReleasesRadio.name = "nyaa-release-type";
-    fullReleasesRadio.value = "full-releases";
-    fullReleasesRadio.checked = true;
+    const createRadioLabel = (id: string, value: string, text: string, checked: boolean = false): [HTMLLabelElement, HTMLInputElement] => {
+        const input = document.createElement("input");
+        input.type = "radio";
+        input.id = id;
+        input.name = "nyaa-release-type";
+        input.value = value;
+        input.checked = checked;
+        input.style.cursor = "pointer";
 
-    const fullLabel = document.createElement("label");
-    fullLabel.htmlFor = "nyaa-full-releases";
-    fullLabel.textContent = "Full Releases";
-    fullLabel.style.cssText = "display: inline-flex; align-items: center; gap: 0.25rem;";
+        const label = document.createElement("label");
+        label.htmlFor = id;
+        label.style.cssText = "display: inline-flex; align-items: center; gap: 0.35rem; cursor: pointer;";
+        label.appendChild(input);
+        label.appendChild(document.createTextNode(text));
 
-    const episodeReleasesRadio = document.createElement("input");
-    episodeReleasesRadio.type = "radio";
-    episodeReleasesRadio.id = "nyaa-episode-releases";
-    episodeReleasesRadio.name = "nyaa-release-type";
-    episodeReleasesRadio.value = "episode-releases";
+        return [label, input];
+    };
 
-    const episodeLabel = document.createElement("label");
-    episodeLabel.htmlFor = "nyaa-episode-releases";
-    episodeLabel.textContent = "Episode Releases";
-    episodeLabel.style.cssText = "display: inline-flex; align-items: center; gap: 0.25rem;";
+    const [fullReleaseLabel, fullReleasesRadio] = createRadioLabel("nyaa-full-releases", "full-releases", "Full Releases", true);
+    const [episodeReleaseLabel, episodeReleasesRadio] = createRadioLabel("nyaa-episode-releases", "episode-releases", "Episode Releases");
 
     const episodeSelect = document.createElement("select");
     episodeSelect.id = "nyaa-episode-select";
     episodeSelect.style.cssText = "padding: 0.25rem 0.5rem; display: none; min-width: 200px;";
 
-    row1.appendChild(fullReleasesRadio);
-    row1.appendChild(fullLabel);
-    row1.appendChild(episodeReleasesRadio);
-    row1.appendChild(episodeLabel);
+    row1.appendChild(fullReleaseLabel);
+    row1.appendChild(episodeReleaseLabel);
     row1.appendChild(episodeSelect);
 
     // Row 2: Search button + Sort buttons
