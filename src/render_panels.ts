@@ -88,25 +88,31 @@ function appendLinkifiedComparison(parent: HTMLElement, text: string): void {
 }
 
 // Data Parsing
+const UNIT_MULTIPLIERS: Record<string, number> = {
+    "": 1, "BYTES": 1,
+    "KIB": 1024, "KB": 1000,
+    "MIB": 1024 ** 2, "MB": 1000 ** 2,
+    "GIB": 1024 ** 3, "GB": 1000 ** 3,
+    "TIB": 1024 ** 4, "TB": 1000 ** 4,
+};
+
 function parseFileSize(sizeStr: string | undefined): number {
     if (!sizeStr) return 0;
     const match = sizeStr.match(/^([\d.]+)\s*(bytes|[KMGT]iB|[KMGT]B)?$/i);
     if (!match) return 0;
     const value = parseFloat(match[1]);
     const unit = (match[2] || "").toUpperCase();
-    const multipliers: Record<string, number> = {
-        "": 1, "BYTES": 1,
-        "KIB": 1024, "KB": 1000,
-        "MIB": 1024 ** 2, "MB": 1000 ** 2,
-        "GIB": 1024 ** 3, "GB": 1000 ** 3,
-        "TIB": 1024 ** 4, "TB": 1000 ** 4,
-    };
-    return value * (multipliers[unit] || 1);
+    return value * (UNIT_MULTIPLIERS[unit] || 1);
 }
 
 // ==========================================
 // 2. UI Component Helpers
 // ==========================================
+
+const BASE_BTN_STYLE = "border: none; cursor: pointer; font-size: 1.1em; padding: 0.35rem 0.5rem; border-radius: 4px; color: white;";
+const FLEX_COLUMN_GAP_HALF = "display: flex; flex-direction: column; gap: 0.5rem;";
+const FLEX_COLUMN_GAP_ONE = "display: flex; flex-direction: column; gap: 1rem;";
+const FLEX_ROW_WRAP = "display: flex; gap: 1.5rem; flex-wrap: wrap;";
 
 function createCardContainer(): HTMLElement {
     const card = document.createElement("div");
@@ -181,9 +187,9 @@ function createExpandButton(): HTMLElement {
 
 function createActionButton(icon: string, title: string, color: string, onClick?: (ev: MouseEvent) => void): HTMLElement {
     const btn = document.createElement("button");
-    btn.innerHTML = icon;
+    btn.textContent = icon;
     btn.title = title;
-    btn.style.cssText = `background: ${color}; border: none; cursor: pointer; font-size: 1.1em; padding: 0.35rem 0.5rem; border-radius: 4px; color: white;`;
+    btn.style.cssText = `background: ${color}; ${BASE_BTN_STYLE}`;
     if (onClick) {
         btn.addEventListener("click", onClick);
     }
@@ -192,14 +198,26 @@ function createActionButton(icon: string, title: string, color: string, onClick?
 
 function createLinkButton(icon: string, title: string, url: string, color: string): HTMLElement {
     const link = document.createElement("a");
-    link.innerHTML = icon;
+    link.textContent = icon;
     link.title = title;
     link.href = url;
     link.target = "_blank";
     link.rel = "noopener noreferrer";
-    link.style.cssText = `text-decoration: none; font-size: 1.1em; padding: 0.35rem 0.5rem; background: ${color}; border-radius: 4px; display: inline-block; color: white;`;
+    link.style.cssText = `background: ${color}; text-decoration: none; display: inline-block; ${BASE_BTN_STYLE}`;
     link.addEventListener("click", (ev) => ev.stopPropagation());
     return link;
+}
+
+function createDetailSpan(label: string, value: string, color?: string): HTMLElement {
+    const span = document.createElement("span");
+    if (color) span.style.color = color;
+
+    const strong = document.createElement("strong");
+    strong.textContent = label;
+
+    span.appendChild(strong);
+    span.appendChild(document.createTextNode(" " + value));
+    return span;
 }
 
 function createDetailsContainer(): HTMLElement {
@@ -210,7 +228,80 @@ function createDetailsContainer(): HTMLElement {
 }
 
 // ==========================================
-// 3. SeaDex Panel Logic
+// 3. Panel Placement Helper
+// ==========================================
+
+function placePanel(
+    panelId: string,
+    anilistId: number,
+    content: HTMLElement | null,
+    afterElementId?: string
+): void {
+    const existing = document.getElementById(panelId);
+    if (!existing) {
+        // Create new panel
+        if (!content) return; // Should not happen if creating
+        const panel = document.createElement("div");
+        panel.id = panelId;
+        panel.className = "grid-section-wrap";
+        panel.dataset.anilistId = String(anilistId);
+        panel.dataset.anchored = "false";
+
+        const inner = document.createElement("div");
+        inner.className = "section";
+        inner.appendChild(content);
+        panel.appendChild(inner);
+
+        insertPanel(panel, afterElementId);
+        return;
+    }
+
+    // Refresh existing placement
+    if (existing.dataset.anilistId && existing.dataset.anilistId !== String(anilistId)) {
+        return; // Don't touch if belonging to another ID (handled by tryInject)
+    }
+
+    insertPanel(existing, afterElementId);
+}
+
+function insertPanel(panel: HTMLElement, afterElementId?: string): void {
+    const anchor = findAnchor();
+    const provisional = provisionalContainer();
+
+    let target: Element | null = null;
+    if (afterElementId) {
+        target = document.getElementById(afterElementId);
+    }
+
+    // If target exists and is attached, place after it
+    if (target && target.parentElement) {
+        // Only move if not already there
+        if (panel.previousElementSibling !== target) {
+            panel.style.marginTop = "2rem";
+            target.insertAdjacentElement("afterend", panel);
+        }
+        panel.dataset.anchored = "true";
+        return;
+    }
+
+    // Fallback to anchor
+    if (anchor && anchor.parentElement) {
+        if (panel.previousElementSibling !== anchor) {
+            panel.style.marginTop = "";
+            anchor.insertAdjacentElement("afterend", panel);
+        }
+        panel.dataset.anchored = "true";
+        return;
+    }
+
+    // Fallback to provisional
+    if (provisional && (!panel.parentElement || panel.parentElement !== provisional)) {
+        provisional.appendChild(panel);
+    }
+}
+
+// ==========================================
+// 4. SeaDex Panel Logic
 // ==========================================
 
 export function renderSeadexPanel(data: ReleaseData, anilistId: number): void {
@@ -223,11 +314,11 @@ export function renderSeadexPanel(data: ReleaseData, anilistId: number): void {
 
     const contentWrap = document.createElement("div");
     contentWrap.className = "content-wrap list";
-    contentWrap.style.cssText = "display: flex; flex-direction: column; gap: 1rem;";
+    contentWrap.style.cssText = FLEX_COLUMN_GAP_ONE;
 
-    // Display Meta Info as separate cards
+    // Display Meta Info
     const metaContainer = document.createElement("div");
-    metaContainer.style.cssText = "display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1rem;";
+    metaContainer.style.cssText = `${FLEX_COLUMN_GAP_HALF} margin-bottom: 1rem;`;
 
     if (data.comparison) {
         metaContainer.appendChild(createMetaCard("Comparison", data.comparison, true));
@@ -235,14 +326,14 @@ export function renderSeadexPanel(data: ReleaseData, anilistId: number): void {
     if (data.notes) {
         metaContainer.appendChild(createMetaCard("Notes", data.notes));
     }
-    if (data["theoretical best"]) {
-        metaContainer.appendChild(createMetaCard("Theoretical Best", data["theoretical best"]));
+    if (data.theoreticalBest) {
+        metaContainer.appendChild(createMetaCard("Theoretical Best", data.theoreticalBest));
     }
     contentWrap.appendChild(metaContainer);
 
-    // Display Releases as stacked cards
+    // Display Releases
     const resultsContainer = document.createElement("div");
-    resultsContainer.style.cssText = "display: flex; flex-direction: column; gap: 0.5rem;";
+    resultsContainer.style.cssText = FLEX_COLUMN_GAP_HALF;
 
     data.releases.forEach((release: ReleaseEntry) => {
         resultsContainer.appendChild(createSeadexCard(release));
@@ -251,70 +342,29 @@ export function renderSeadexPanel(data: ReleaseData, anilistId: number): void {
     contentWrap.appendChild(resultsContainer);
     content.appendChild(contentWrap);
 
-    mountSeadexPanel(content, anilistId);
-}
-
-function mountSeadexPanel(content: HTMLElement, anilistId: number): void {
-    document.querySelectorAll(`#${SEADEX_PANEL_ID}`).forEach((node) => node.remove());
-
-    const seadexPanel = document.createElement("div");
-    seadexPanel.id = SEADEX_PANEL_ID;
-    seadexPanel.className = "grid-section-wrap";
-    seadexPanel.dataset.anilistId = String(anilistId);
-    seadexPanel.dataset.anchored = "false";
-
-    const inner = document.createElement("div");
-    inner.className = "section";
-    inner.appendChild(content);
-    seadexPanel.appendChild(inner);
-
-    const anchor = findAnchor();
-    if (anchor && anchor.parentElement) {
-        anchor.insertAdjacentElement("afterend", seadexPanel);
-        seadexPanel.dataset.anchored = "true";
-    } else {
-        const provisional = provisionalContainer();
-        if (provisional) provisional.appendChild(seadexPanel);
-    }
+    // Mount
+    placePanel(SEADEX_PANEL_ID, anilistId, content);
 }
 
 export function ensureSeadexPanelPlacement(currentAniId: number | null): void {
-    const seadexPanel = document.getElementById(SEADEX_PANEL_ID) as HTMLElement | null;
-    if (!seadexPanel) return;
-
-    if (currentAniId && seadexPanel.dataset.anilistId && seadexPanel.dataset.anilistId !== String(currentAniId)) {
-        return;
-    }
-
-    const anchor = findAnchor();
-    if (!anchor || !anchor.parentElement) return;
-
-    if (seadexPanel.previousElementSibling === anchor) {
-        seadexPanel.dataset.anchored = "true";
-        return;
-    }
-
-    anchor.insertAdjacentElement("afterend", seadexPanel);
-    seadexPanel.dataset.anchored = "true";
+    const seadexPanel = document.getElementById(SEADEX_PANEL_ID);
+    if (!seadexPanel || !currentAniId) return;
+    insertPanel(seadexPanel);
 }
 
 function createMetaCard(title: string, contentText: string, isComparison: boolean = false): HTMLElement {
-    // Reuse standardized card helpers
     const card = createCardContainer();
     card.className = "seadex-meta-card";
-    // Specific meta-card overrides (darker background)
     card.style.background = "rgba(var(--color-background-rgb), 0.6)";
 
     const header = createCardHeader();
 
-    // Title
     const titleSpan = document.createElement("span");
     titleSpan.style.cssText = "flex: 1; font-weight: 600;";
     titleSpan.textContent = title;
 
-    // Toggle Button
     const expandBtn = createExpandButton();
-    expandBtn.textContent = "-"; // Default expanded state
+    expandBtn.textContent = "-";
 
     header.appendChild(titleSpan);
     header.appendChild(expandBtn);
@@ -343,19 +393,18 @@ function createSeadexCard(release: ReleaseEntry): HTMLElement {
     const card = createCardContainer();
     card.className = "seadex-result-card";
 
-    // Header
     const header = createCardHeader();
 
-    // Release Group (Left aligned) + Flags
-    const titleContainer = createTitleContainer(release["release group"] || "Unknown Group", release["release group"]);
+    // Release Group
+    const titleContainer = createTitleContainer(release.releaseGroup || "Unknown Group", release.releaseGroup);
 
-    // Flags/Tags (Next to title)
+    // Flags
     const allFlags: string[] = [];
-    if (release["dual audio"]) allFlags.push("Dual Audio");
-    if (release["is best"]) allFlags.push("Best Release");
-    if (release["private tracker"]) allFlags.push("Private Tracker");
-    if (release["tags"] && release["tags"].length > 0) {
-        allFlags.push(...release["tags"]);
+    if (release.dualAudio) allFlags.push("Dual Audio");
+    if (release.isBest) allFlags.push("Best Release");
+    if (release.privateTracker) allFlags.push("Private Tracker");
+    if (release.tags && release.tags.length > 0) {
+        allFlags.push(...release.tags);
     }
 
     if (allFlags.length > 0) {
@@ -366,7 +415,6 @@ function createSeadexCard(release: ReleaseEntry): HTMLElement {
         titleContainer.appendChild(flagsSpan);
     }
 
-    // Right aligned container
     const actionsContainer = createActionContainer();
 
     const trackerSpan = document.createElement("span");
@@ -375,13 +423,11 @@ function createSeadexCard(release: ReleaseEntry): HTMLElement {
     trackerSpan.title = release.tracker || "";
     if (release.tracker) actionsContainer.appendChild(trackerSpan);
 
-    // Size
     const sizeSpan = document.createElement("span");
     sizeSpan.style.cssText = "color: #68D639; font-weight: 600; min-width: 80px; text-align: right; margin-right: 0.5rem;";
-    sizeSpan.textContent = release["file size"] || "";
+    sizeSpan.textContent = release.fileSize || "";
     actionsContainer.appendChild(sizeSpan);
 
-    // URL Button
     const rawUrl = release.url || "";
     if (rawUrl) {
         if (/^https?:\/\//i.test(rawUrl)) {
@@ -392,8 +438,8 @@ function createSeadexCard(release: ReleaseEntry): HTMLElement {
                 ev.stopPropagation();
                 try {
                     await navigator.clipboard.writeText(rawUrl);
-                    copyBtn.innerHTML = "✓";
-                    setTimeout(() => { copyBtn.innerHTML = "📋"; }, 1000);
+                    copyBtn.textContent = "✓";
+                    setTimeout(() => { copyBtn.textContent = "📋"; }, 1000);
                 } catch {
                     window.prompt("Copy URL", rawUrl);
                 }
@@ -402,17 +448,15 @@ function createSeadexCard(release: ReleaseEntry): HTMLElement {
         }
     }
 
-    // Expand Button
     const expandBtn = createExpandButton();
     actionsContainer.appendChild(expandBtn);
 
     header.appendChild(titleContainer);
     header.appendChild(actionsContainer);
 
-    // Details Section
     const details = createDetailsContainer();
 
-    if (release["episode list"]?.length) {
+    if (release.episodeList?.length) {
         const episodesHeader = document.createElement("div");
         episodesHeader.textContent = "Episodes:";
         episodesHeader.style.cssText = "font-weight: 600; margin-bottom: 0.5rem; margin-top: 0.5rem;";
@@ -421,7 +465,7 @@ function createSeadexCard(release: ReleaseEntry): HTMLElement {
         const episodeList = document.createElement("ul");
         episodeList.style.cssText = "list-style: none; padding-left: 0.5rem; margin: 0;";
 
-        release["episode list"].forEach((ep) => {
+        release.episodeList.forEach((ep) => {
             const li = document.createElement("li");
             li.style.cssText = "padding: 0.25rem 0; border-bottom: 1px solid rgba(var(--color-foreground-rgb, 92,114,138), 0.1); display: flex; justify-content: space-between;";
 
@@ -442,7 +486,6 @@ function createSeadexCard(release: ReleaseEntry): HTMLElement {
     card.appendChild(header);
     card.appendChild(details);
 
-    // Expand Logic
     header.addEventListener("click", () => {
         const isHidden = details.style.display === "none";
         details.style.display = isHidden ? "block" : "none";
@@ -453,16 +496,26 @@ function createSeadexCard(release: ReleaseEntry): HTMLElement {
 }
 
 // ==========================================
-// 4. Nyaa Panel Logic
+// 5. Nyaa Panel Logic
 // ==========================================
 
-// Sort state for live insertion
 type SortCriteria = 'seeders' | 'date' | 'size' | 'completed';
-let currentSortCriteria: SortCriteria = 'seeders';
-let currentAbortController: AbortController | null = null;
-let allResults: NyaaMetadata[] = [];
-let cachedEpisodes: Episode[] | null = null;
-let cachedAnilistId: number | null = null;
+
+// Augmented metadata for sorting performance
+interface NyaaMetadataEnhanced extends NyaaMetadata {
+    _parsedSize?: number;
+    _parsedDate?: number;
+    _parsedSeeders?: number;
+    _parsedCompleted?: number;
+}
+
+const nyaaState = {
+    sortCriteria: 'seeders' as SortCriteria,
+    abortController: null as AbortController | null,
+    results: [] as NyaaMetadataEnhanced[],
+    cachedEpisodes: null as Episode[] | null,
+    cachedAnilistId: null as number | null,
+};
 
 export async function renderNyaaPanel(anilistId: number): Promise<void> {
     const existingPanel = document.getElementById(NYAA_PANEL_ID);
@@ -481,7 +534,7 @@ export async function renderNyaaPanel(anilistId: number): Promise<void> {
     const contentWrap = document.createElement("div");
     contentWrap.className = "content-wrap";
 
-    // Row 1: Radio buttons
+    // Controls
     const radioRow = document.createElement("div");
     radioRow.style.cssText = "display: flex; gap: 1rem; margin-bottom: 1.25rem; align-items: center; flex-wrap: wrap;";
 
@@ -509,9 +562,8 @@ export async function renderNyaaPanel(anilistId: number): Promise<void> {
     radioRow.appendChild(fullReleaseLabel);
     radioRow.appendChild(episodeReleaseLabel);
 
-    // Row 1.5: Episode dropdown (Always on new line)
     const dropdownRow = document.createElement("div");
-    dropdownRow.style.cssText = "display: none; margin-bottom: 2rem; margin-top: 2rem;"; // Hidden by default
+    dropdownRow.style.cssText = "display: none; margin-bottom: 2rem; margin-top: 2rem;";
 
     const episodeSelect = document.createElement("select");
     episodeSelect.id = "nyaa-episode-select";
@@ -519,7 +571,6 @@ export async function renderNyaaPanel(anilistId: number): Promise<void> {
 
     dropdownRow.appendChild(episodeSelect);
 
-    // Row 2: Search button + Sort buttons
     const row2 = document.createElement("div");
     row2.style.cssText = "display: flex; gap: 0.5rem; margin-bottom: 1rem; align-items: center; flex-wrap: wrap;";
 
@@ -538,7 +589,7 @@ export async function renderNyaaPanel(anilistId: number): Promise<void> {
         btn.textContent = label;
         btn.className = "button";
         btn.dataset.sortCriteria = criteria;
-        const isActive = criteria === currentSortCriteria;
+        const isActive = criteria === nyaaState.sortCriteria;
         btn.style.cssText = `padding: 0.25rem 0.5rem; cursor: pointer; font-size: 0.85em; border-radius: 4px; border: none; background: ${isActive ? "#02A9FF" : "#58BFF4"}; color: white;`;
         btn.addEventListener("click", () => handleSortChange(criteria));
         return btn;
@@ -559,7 +610,7 @@ export async function renderNyaaPanel(anilistId: number): Promise<void> {
     const updateEpisodeSelectVisibility = async () => {
         if (episodeReleasesRadio.checked) {
             dropdownRow.style.display = "block";
-            if (!cachedEpisodes || cachedAnilistId !== anilistId) {
+            if (!nyaaState.cachedEpisodes || nyaaState.cachedAnilistId !== anilistId) {
                 const loadingOption = document.createElement("option");
                 loadingOption.textContent = "Loading...";
                 episodeSelect.replaceChildren(loadingOption);
@@ -586,64 +637,14 @@ export async function renderNyaaPanel(anilistId: number): Promise<void> {
 
     content.appendChild(contentWrap);
 
-    mountNyaaPanel(content, anilistId);
-}
-
-function mountNyaaPanel(content: HTMLElement, anilistId: number): void {
-    document.querySelectorAll(`#${NYAA_PANEL_ID}`).forEach((node) => node.remove());
-
-    const nyaaPanel = document.createElement("div");
-    nyaaPanel.id = NYAA_PANEL_ID;
-    nyaaPanel.className = "grid-section-wrap";
-    nyaaPanel.dataset.anilistId = String(anilistId);
-
-    const inner = document.createElement("div");
-    inner.className = "section";
-    inner.appendChild(content);
-    nyaaPanel.appendChild(inner);
-
-    const seadexPanel = document.getElementById(SEADEX_PANEL_ID);
-    if (seadexPanel && seadexPanel.parentElement) {
-        nyaaPanel.style.marginTop = "2rem";
-        seadexPanel.insertAdjacentElement("afterend", nyaaPanel);
-        return;
-    }
-
-    const anchor = findAnchor();
-    if (anchor && anchor.parentElement) {
-        anchor.insertAdjacentElement("afterend", nyaaPanel);
-        return;
-    }
-
-    const provisional = provisionalContainer();
-    if (provisional) {
-        provisional.appendChild(nyaaPanel);
-    }
+    // Mount logic: After Seadex if possible
+    placePanel(NYAA_PANEL_ID, anilistId, content, SEADEX_PANEL_ID);
 }
 
 export function ensureNyaaPanelPlacement(currentAniId: number | null): void {
     const nyaaPanel = document.getElementById(NYAA_PANEL_ID);
-    if (!nyaaPanel) return;
-
-    if (currentAniId && nyaaPanel.dataset.anilistId && nyaaPanel.dataset.anilistId !== String(currentAniId)) {
-        return;
-    }
-
-    const seadexPanel = document.getElementById(SEADEX_PANEL_ID);
-    if (seadexPanel && seadexPanel.parentElement) {
-        if (nyaaPanel.previousElementSibling !== seadexPanel) {
-            nyaaPanel.style.marginTop = "2rem";
-            seadexPanel.insertAdjacentElement("afterend", nyaaPanel);
-        }
-        return;
-    }
-
-    const anchor = findAnchor();
-    if (anchor && anchor.parentElement) {
-        if (nyaaPanel.previousElementSibling !== anchor) {
-            anchor.insertAdjacentElement("afterend", nyaaPanel);
-        }
-    }
+    if (!nyaaPanel || !currentAniId) return;
+    insertPanel(nyaaPanel, SEADEX_PANEL_ID);
 }
 
 // Nyaa Search Logic
@@ -653,17 +654,15 @@ async function handleNyaaSearchStreaming(anilistId: number): Promise<void> {
     const searchBtn = document.getElementById("search-nyaa-btn") as HTMLButtonElement;
     if (!resultsArea || !searchBtn) return;
 
-    // Handle stop search
-    if (currentAbortController) {
-        currentAbortController.abort();
-        currentAbortController = null;
+    if (nyaaState.abortController) {
+        nyaaState.abortController.abort();
+        nyaaState.abortController = null;
         searchBtn.textContent = "Start Search";
         return;
     }
 
-    // Reset state
-    allResults = [];
-    currentAbortController = new AbortController();
+    nyaaState.results = [];
+    nyaaState.abortController = new AbortController();
     searchBtn.textContent = "Stop Search";
 
     const fullRelease =
@@ -677,12 +676,11 @@ async function handleNyaaSearchStreaming(anilistId: number): Promise<void> {
         errorMsg.style.cssText = "color: #E85D75; margin-top: 1rem;";
         errorMsg.textContent = "Please select an episode";
         resultsArea.appendChild(errorMsg);
-        currentAbortController = null;
+        nyaaState.abortController = null;
         searchBtn.textContent = "Start Search";
         return;
     }
 
-    // Setup results container
     resultsArea.textContent = "";
 
     const statusText = document.createElement("p");
@@ -693,13 +691,13 @@ async function handleNyaaSearchStreaming(anilistId: number): Promise<void> {
 
     const resultsContainer = document.createElement("div");
     resultsContainer.id = "nyaa-results-list";
-    resultsContainer.style.cssText = "display: flex; flex-direction: column; gap: 0.5rem; margin-top: 1rem;";
+    resultsContainer.style.cssText = `${FLEX_COLUMN_GAP_HALF} margin-top: 1rem;`;
     resultsArea.appendChild(resultsContainer);
 
     try {
         const anidbApi = new AnidbIdApi();
-
         let generator: AsyncGenerator<NyaaMetadata, void, unknown>;
+
         if (fullRelease) {
             const mapping = await anidbApi.getAnidbId(anilistId);
             if (!mapping) {
@@ -708,23 +706,30 @@ async function handleNyaaSearchStreaming(anilistId: number): Promise<void> {
                 errorP.style.cssText = "color: #E85D75; margin-top: 1rem;";
                 errorP.textContent = "Failed to get AniDB mapping";
                 resultsArea.appendChild(errorP);
-                currentAbortController = null;
+                nyaaState.abortController = null;
                 searchBtn.textContent = "Start Search";
                 return;
             }
-            generator = anidbApi.iterateAnimetoshoMetadata(mapping.anidb_id, null, currentAbortController.signal);
+            generator = anidbApi.streamAnimetoshoMetadata(mapping.anidb_id, null, nyaaState.abortController.signal);
         } else {
-            generator = anidbApi.iterateNyaaAnidbEpisode(anilistId, selectedEpisode!, currentAbortController.signal);
+            generator = anidbApi.streamNyaaAnidbEpisodeMetadata(anilistId, selectedEpisode!, nyaaState.abortController.signal);
         }
 
         for await (const result of generator) {
-            if (currentAbortController?.signal.aborted) break;
+            if (nyaaState.abortController?.signal.aborted) break;
 
-            const resultIndex = allResults.length;
-            allResults.push(result);
+            const enhancedResult = result as NyaaMetadataEnhanced;
+            // Precalculate sort values
+            enhancedResult._parsedSize = parseFileSize(enhancedResult.fileSize);
+            enhancedResult._parsedDate = new Date(enhancedResult.date || "1970-01-01").getTime();
+            enhancedResult._parsedSeeders = parseInt(enhancedResult.seeders || "0");
+            enhancedResult._parsedCompleted = parseInt(enhancedResult.completed || "0");
 
-            const card = createNyaaCard(result, resultIndex);
-            const insertPos = getInsertPosition(resultsContainer, result, currentSortCriteria);
+            const resultIndex = nyaaState.results.length;
+            nyaaState.results.push(enhancedResult);
+
+            const card = createNyaaCard(enhancedResult, resultIndex);
+            const insertPos = getInsertPosition(resultsContainer, enhancedResult, nyaaState.sortCriteria);
 
             if (insertPos >= resultsContainer.children.length) {
                 resultsContainer.appendChild(card);
@@ -732,13 +737,13 @@ async function handleNyaaSearchStreaming(anilistId: number): Promise<void> {
                 resultsContainer.insertBefore(card, resultsContainer.children[insertPos]);
             }
 
-            statusText.textContent = `Searching Nyaa... Found ${allResults.length} sources`;
+            statusText.textContent = `Searching Nyaa... Found ${nyaaState.results.length} sources`;
         }
 
-        if (allResults.length === 0) {
+        if (nyaaState.results.length === 0) {
             statusText.textContent = "No releases found with active seeders";
         } else {
-            statusText.textContent = `Search complete. Found ${allResults.length} sources`;
+            statusText.textContent = `Search complete. Found ${nyaaState.results.length} sources`;
         }
     } catch (error) {
         if ((error as Error).name !== "AbortError") {
@@ -746,11 +751,11 @@ async function handleNyaaSearchStreaming(anilistId: number): Promise<void> {
             resultsArea.textContent = "";
             const errorP = document.createElement("p");
             errorP.style.cssText = "color: #E85D75; margin-top: 1rem;";
-            errorP.textContent = "Error searching Nyaa (Animetosho.org most likely hasn't indexed any releases)";
+            errorP.textContent = "Error searching Nyaa (Animetosho.org may not have indexed any releases)";
             resultsArea.appendChild(errorP);
         }
     } finally {
-        currentAbortController = null;
+        nyaaState.abortController = null;
         searchBtn.textContent = "Start Search";
     }
 }
@@ -760,22 +765,17 @@ function createNyaaCard(release: NyaaMetadata, index: number): HTMLElement {
     card.className = "nyaa-result-card";
     card.dataset.resultIndex = String(index);
 
-    // Header
     const header = createCardHeader();
 
-    // Release name
-    const title = createSimpleTitle(release["release name"] || "Unknown Release");
+    const title = createSimpleTitle(release.releaseName || "Unknown Release");
 
-    // Actions
     const actionsContainer = createActionContainer();
 
-    // Seeders (Nyaa specific: left of buttons)
     const seedersSpan = document.createElement("span");
     seedersSpan.style.cssText = "color: #68D639; font-weight: 600; min-width: 90px; text-align: right; margin-right: 0.5rem;";
     seedersSpan.textContent = `${release.seeders || "0"} Seeders`;
     actionsContainer.appendChild(seedersSpan);
 
-    // Magnet Button
     const magnetBtn = createActionButton("🧲", "Copy Magnet Link", "#02A9FF", async (ev) => {
         ev.stopPropagation();
         try {
@@ -788,50 +788,41 @@ function createNyaaCard(release: NyaaMetadata, index: number): HTMLElement {
     });
     actionsContainer.appendChild(magnetBtn);
 
-    // URL Button
     const urlBtn = createLinkButton("🔗", "Open on Nyaa", release.url || "#", "#02A9FF");
     actionsContainer.appendChild(urlBtn);
 
-    // Expand Button
     const expandBtn = createExpandButton();
     actionsContainer.appendChild(expandBtn);
 
     header.appendChild(title);
     header.appendChild(actionsContainer);
 
-    // Details section
     const details = createDetailsContainer();
 
-    // Full title at top of expanded view
     const fullTitleDiv = document.createElement("div");
     fullTitleDiv.style.cssText = "font-weight: 600; margin-bottom: 0.75rem; word-break: break-word;";
-    fullTitleDiv.textContent = release["release name"] || "Unknown Release";
+    fullTitleDiv.textContent = release.releaseName || "Unknown Release";
     details.appendChild(fullTitleDiv);
 
     const detailsRow1 = document.createElement("div");
-    detailsRow1.style.cssText = "display: flex; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 0.5rem;";
-    detailsRow1.innerHTML = `
-        <span><strong>Category:</strong> ${release.category || "Unknown"}</span>
-        <span style="color: #68D639;"><strong>Seeders:</strong> ${release.seeders || "0"}</span>
-        <span style="color: #E85D75;"><strong>Leechers:</strong> ${release.leechers || "0"}</span>
-    `;
+    detailsRow1.style.cssText = `${FLEX_ROW_WRAP} margin-bottom: 0.5rem;`;
+    detailsRow1.appendChild(createDetailSpan("Category:", release.category || "Unknown"));
+    detailsRow1.appendChild(createDetailSpan("Seeders:", release.seeders || "0", "#68D639"));
+    detailsRow1.appendChild(createDetailSpan("Leechers:", release.leechers || "0", "#E85D75"));
 
     const detailsRow2 = document.createElement("div");
-    detailsRow2.style.cssText = "display: flex; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 0.5rem;";
-    detailsRow2.innerHTML = `
-        <span><strong>Date:</strong> ${release.date || "Unknown"}</span>
-        <span><strong>Size:</strong> ${release["file size"] || "Unknown"}</span>
-        <span><strong>Completed:</strong> ${release.completed || "0"}</span>
-    `;
+    detailsRow2.style.cssText = `${FLEX_ROW_WRAP} margin-bottom: 0.5rem;`;
+    detailsRow2.appendChild(createDetailSpan("Date:", release.date || "Unknown"));
+    detailsRow2.appendChild(createDetailSpan("Size:", release.fileSize || "Unknown"));
+    detailsRow2.appendChild(createDetailSpan("Completed:", release.completed || "0"));
 
     const detailsRow3 = document.createElement("div");
-    detailsRow3.innerHTML = `<span><strong>Submitter:</strong> ${release.submitter || "Unknown"}</span>`;
+    detailsRow3.appendChild(createDetailSpan("Submitter:", release.submitter || "Unknown"));
 
     details.appendChild(detailsRow1);
     details.appendChild(detailsRow2);
     details.appendChild(detailsRow3);
 
-    // Files section
     if (release.files && release.files.length > 0) {
         const filesSection = document.createElement("div");
         filesSection.style.cssText = "margin-top: 0.75rem;";
@@ -860,7 +851,6 @@ function createNyaaCard(release: NyaaMetadata, index: number): HTMLElement {
     card.appendChild(header);
     card.appendChild(details);
 
-    // Click header to expand/collapse
     header.addEventListener("click", () => {
         const isHidden = details.style.display === "none";
         details.style.display = isHidden ? "block" : "none";
@@ -893,32 +883,26 @@ function renderFileTree(entries: NyaaFileEntry[], depth: number = 0): HTMLUListE
     return ul;
 }
 
-// Nyaa Specific Helpers (Sorting, Episodes)
-
-function compareBySort(a: NyaaMetadata, b: NyaaMetadata, criteria: SortCriteria): number {
+function compareBySort(a: NyaaMetadataEnhanced, b: NyaaMetadataEnhanced, criteria: SortCriteria): number {
     switch (criteria) {
         case 'seeders':
-            return parseInt(b.seeders || "0") - parseInt(a.seeders || "0");
+            return (b._parsedSeeders || 0) - (a._parsedSeeders || 0);
         case 'date':
-            // Parse date strings for comparison (newer first)
-            const dateA = new Date(a.date || "1970-01-01").getTime();
-            const dateB = new Date(b.date || "1970-01-01").getTime();
-            return dateB - dateA;
+            return (b._parsedDate || 0) - (a._parsedDate || 0);
         case 'size':
-            // Parse file size (larger first)
-            return parseFileSize(b["file size"]) - parseFileSize(a["file size"]);
+            return (b._parsedSize || 0) - (a._parsedSize || 0);
         case 'completed':
-            return parseInt(b.completed || "0") - parseInt(a.completed || "0");
+            return (b._parsedCompleted || 0) - (a._parsedCompleted || 0);
         default:
             return 0;
     }
 }
 
-function getInsertPosition(resultsContainer: HTMLElement, newResult: NyaaMetadata, criteria: SortCriteria): number {
+function getInsertPosition(resultsContainer: HTMLElement, newResult: NyaaMetadataEnhanced, criteria: SortCriteria): number {
     const cards = resultsContainer.querySelectorAll<HTMLElement>("[data-result-index]");
     for (let i = 0; i < cards.length; i++) {
         const idx = parseInt(cards[i].dataset.resultIndex || "0");
-        if (compareBySort(newResult, allResults[idx], criteria) < 0) {
+        if (compareBySort(newResult, nyaaState.results[idx], criteria) < 0) {
             return i;
         }
     }
@@ -926,9 +910,8 @@ function getInsertPosition(resultsContainer: HTMLElement, newResult: NyaaMetadat
 }
 
 function handleSortChange(criteria: SortCriteria): void {
-    currentSortCriteria = criteria;
+    nyaaState.sortCriteria = criteria;
 
-    // Update button styles
     document.querySelectorAll<HTMLButtonElement>("[data-sort-criteria]").forEach(btn => {
         if (btn.dataset.sortCriteria === criteria) {
             btn.style.background = "#02A9FF";
@@ -937,18 +920,17 @@ function handleSortChange(criteria: SortCriteria): void {
         }
     });
 
-    // Re-sort existing results
     const resultsContainer = document.getElementById("nyaa-results-list");
-    if (!resultsContainer || allResults.length === 0) return;
+    if (!resultsContainer || nyaaState.results.length === 0) return;
 
-    const sortedIndices = allResults
-        .map((_, idx) => idx)
-        .sort((a, b) => compareBySort(allResults[a], allResults[b], criteria));
+    const sortedIndices = nyaaState.results
+        .map((_: NyaaMetadataEnhanced, idx: number) => idx)
+        .sort((a: number, b: number) => compareBySort(nyaaState.results[a], nyaaState.results[b], criteria));
 
     const cards = Array.from(resultsContainer.querySelectorAll<HTMLElement>("[data-result-index]"));
     const fragment = document.createDocumentFragment();
 
-    sortedIndices.forEach(idx => {
+    sortedIndices.forEach((idx: number) => {
         const card = cards.find(c => c.dataset.resultIndex === String(idx));
         if (card) fragment.appendChild(card);
     });
@@ -957,8 +939,8 @@ function handleSortChange(criteria: SortCriteria): void {
 }
 
 async function loadEpisodeData(anilistId: number): Promise<Episode[]> {
-    if (cachedEpisodes && cachedAnilistId === anilistId) {
-        return cachedEpisodes;
+    if (nyaaState.cachedEpisodes && nyaaState.cachedAnilistId === anilistId) {
+        return nyaaState.cachedEpisodes;
     }
 
     const api = new AnidbIdApi();
@@ -972,13 +954,13 @@ async function loadEpisodeData(anilistId: number): Promise<Episode[]> {
 
         regularEpisodes.sort((a, b) => parseInt(a.episode, 10) - parseInt(b.episode, 10));
 
-        cachedEpisodes = regularEpisodes;
-        cachedAnilistId = anilistId;
+        nyaaState.cachedEpisodes = regularEpisodes;
+        nyaaState.cachedAnilistId = anilistId;
         return regularEpisodes;
     }
 
-    cachedEpisodes = [];
-    cachedAnilistId = anilistId;
+    nyaaState.cachedEpisodes = [];
+    nyaaState.cachedAnilistId = anilistId;
     return [];
 }
 

@@ -15,17 +15,17 @@ export interface FolderItem {
 export type NyaaFileEntry = FileItem | FolderItem;
 
 export interface NyaaMetadata {
-    "release name": string;
-    "magnet": string;
-    "url"?: string;
-    "category"?: string;
-    "date"?: string;
-    "submitter"?: string;
-    "seeders"?: string;
-    "leechers"?: string;
-    "file size"?: string;
-    "completed"?: string;
-    "files": NyaaFileEntry[];
+    releaseName: string;
+    magnet: string;
+    url?: string;
+    category?: string;
+    date?: string;
+    submitter?: string;
+    seeders?: string;
+    leechers?: string;
+    fileSize?: string;
+    completed?: string;
+    files: NyaaFileEntry[];
 }
 
 interface FetchResponse {
@@ -43,6 +43,16 @@ async function backgroundFetch(url: string): Promise<FetchResponse> {
         return { ok: false, text: null };
     }
 }
+
+const METADATA_FIELDS: Record<string, keyof NyaaMetadata> = {
+    "Category:": "category",
+    "Date:": "date",
+    "Submitter:": "submitter",
+    "Seeders:": "seeders",
+    "Leechers:": "leechers",
+    "File size:": "fileSize",
+    "Completed:": "completed",
+};
 
 export class NyaaScraper {
     async getMetadata(url: string): Promise<NyaaMetadata | null> {
@@ -71,8 +81,8 @@ export class NyaaScraper {
             const title = titleElement?.textContent || "";
             const releaseName = title.replace(":: Nyaa", "").trim();
 
-            metadata["release name"] = releaseName;
-            metadata["magnet"] = magnet;
+            metadata.releaseName = releaseName;
+            metadata.magnet = magnet;
 
             const rowsList: string[] = [];
             const rows = soup.querySelectorAll("div.panel-body .row");
@@ -86,49 +96,20 @@ export class NyaaScraper {
                 }
             }
 
+
+
             for (let i = 0; i < rowsList.length; i++) {
                 const element = rowsList[i];
-                switch (element) {
-                    case "Category:":
-                        if (i + 1 < rowsList.length) {
-                            metadata["category"] = rowsList[i + 1];
-                        }
-                        break;
-                    case "Date:":
-                        if (i + 1 < rowsList.length) {
-                            metadata["date"] = rowsList[i + 1];
-                        }
-                        break;
-                    case "Submitter:":
-                        if (i + 1 < rowsList.length) {
-                            metadata["submitter"] = rowsList[i + 1];
-                        }
-                        break;
-                    case "Seeders:":
-                        if (i + 1 < rowsList.length) {
-                            metadata["seeders"] = rowsList[i + 1];
-                        }
-                        break;
-                    case "Leechers:":
-                        if (i + 1 < rowsList.length) {
-                            metadata["leechers"] = rowsList[i + 1];
-                        }
-                        break;
-                    case "File size:":
-                        if (i + 1 < rowsList.length) {
-                            metadata["file size"] = rowsList[i + 1];
-                        }
-                        break;
-                    case "Completed:":
-                        if (i + 1 < rowsList.length) {
-                            metadata["completed"] = rowsList[i + 1];
-                        }
-                        break;
+                const key = METADATA_FIELDS[element];
+                if (key && i + 1 < rowsList.length) {
+                    // Type assertion needed because metadata is Partial<NyaaMetadata> 
+                    // and values are strictly strings, but NyaaMetadata has non-string 'files'
+                    (metadata as any)[key] = rowsList[i + 1];
                 }
             }
 
             const filesDiv = soup.querySelector("div.torrent-file-list.panel-body");
-            metadata["files"] = filesDiv ? this.formatFiles(filesDiv) : [];
+            metadata.files = filesDiv ? this.formatFiles(filesDiv) : [];
 
             return metadata as NyaaMetadata;
         } catch {

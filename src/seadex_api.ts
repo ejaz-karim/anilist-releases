@@ -4,22 +4,22 @@ export interface EpisodeEntry {
 }
 
 export interface ReleaseEntry {
-    "tracker": string;
-    "release group": string;
-    "url": string;
-    "dual audio": boolean;
-    "is best": boolean;
-    "private tracker": boolean;
-    "file size": string;
-    "tags": string[];
-    "episode list": EpisodeEntry[];
+    tracker: string;
+    releaseGroup: string;
+    url: string;
+    dualAudio: boolean;
+    isBest: boolean;
+    privateTracker: boolean;
+    fileSize: string;
+    tags: string[];
+    episodeList: EpisodeEntry[];
 }
 
 export interface ReleaseData {
-    "comparison": string;
-    "notes": string;
-    "theoretical best": string;
-    "releases": ReleaseEntry[];
+    comparison: string;
+    notes: string;
+    theoreticalBest: string;
+    releases: ReleaseEntry[];
 }
 
 export class SeadexApi {
@@ -46,10 +46,10 @@ export class SeadexApi {
         const theoreticalBest = item.theoreticalBest || "";
 
         const releaseDict: ReleaseData = {
-            "comparison": comparison,
-            "notes": notes,
-            "theoretical best": theoreticalBest,
-            "releases": [],
+            comparison: comparison,
+            notes: notes,
+            theoreticalBest: theoreticalBest,
+            releases: [],
         };
 
         const trs = item.expand?.trs || [];
@@ -69,42 +69,38 @@ export class SeadexApi {
 
             for (const file of files) {
                 const name = file.name || "";
-                const fileSizeFormat = this.formatFileSize(file.length || 0);
-                totalFileSize += file.length || 0;
-
-                episodeList.push({ name: name, size: fileSizeFormat });
+                const length = file.length || 0;
+                totalFileSize += length;
+                episodeList.push({ name: name, size: this.formatFileSize(length) });
             }
 
             const totalFileSizeFormat = this.formatFileSize(totalFileSize);
-
             const privateTracker = entry.infoHash === "<redacted>";
 
             const entryDict: ReleaseEntry = {
-                "tracker": tracker,
-                "release group": releaseGroup,
-                "url": url,
-                "dual audio": dualAudio,
-                "is best": isBest,
-                "private tracker": privateTracker,
-                "tags": tags,
-                "file size": totalFileSizeFormat,
-                "episode list": episodeList
+                tracker: tracker,
+                releaseGroup: releaseGroup,
+                url: url,
+                dualAudio: dualAudio,
+                isBest: isBest,
+                privateTracker: privateTracker,
+                tags: tags,
+                fileSize: totalFileSizeFormat,
+                episodeList: episodeList
             };
 
-            releaseDict["releases"].push(entryDict);
+            releaseDict.releases.push(entryDict);
         }
 
         return releaseDict;
     }
 
     formatFileSize(bytes: number): string {
-        const megabytes = bytes / (1024 ** 2);
-        const gigabytes = bytes / (1024 ** 3);
-
-        if (gigabytes >= 1) {
-            return `${gigabytes.toFixed(1)} GiB`;
-        } else {
-            return `${megabytes.toFixed(1)} MiB`;
-        }
+        if (bytes === 0) return "0 B";
+        const units = ["B", "KiB", "MiB", "GiB", "TiB"];
+        const i = Math.floor(Math.log(bytes) / Math.log(1024));
+        // Clamp to max unit
+        const index = Math.min(i, units.length - 1);
+        return `${(bytes / (1024 ** index)).toFixed(1)} ${units[index]}`;
     }
 }
