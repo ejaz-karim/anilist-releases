@@ -275,9 +275,9 @@ function insertPanel(panel: HTMLElement, afterElementId?: string): void {
 
     // If target exists and is attached, place after it
     if (target && target.parentElement) {
+        panel.style.marginTop = "2rem";
         // Only move if not already there
         if (panel.previousElementSibling !== target) {
-            panel.style.marginTop = "2rem";
             target.insertAdjacentElement("afterend", panel);
         }
         panel.dataset.anchored = "true";
@@ -286,8 +286,8 @@ function insertPanel(panel: HTMLElement, afterElementId?: string): void {
 
     // Fallback to anchor
     if (anchor && anchor.parentElement) {
+        panel.style.marginTop = "";
         if (panel.previousElementSibling !== anchor) {
-            panel.style.marginTop = "";
             anchor.insertAdjacentElement("afterend", panel);
         }
         panel.dataset.anchored = "true";
