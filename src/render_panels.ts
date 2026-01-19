@@ -377,7 +377,7 @@ function createSeadexCard(release: ReleaseEntry): HTMLElement {
 
     // Size
     const sizeSpan = document.createElement("span");
-    sizeSpan.style.cssText = "color: #4caf50; font-weight: 600; min-width: 80px; text-align: right; margin-right: 0.5rem;";
+    sizeSpan.style.cssText = "color: #68D639; font-weight: 600; min-width: 80px; text-align: right; margin-right: 0.5rem;";
     sizeSpan.textContent = release["file size"] || "";
     actionsContainer.appendChild(sizeSpan);
 
@@ -481,9 +481,9 @@ export async function renderNyaaPanel(anilistId: number): Promise<void> {
     const contentWrap = document.createElement("div");
     contentWrap.className = "content-wrap";
 
-    // Row 1: Radio buttons + Episode dropdown
-    const row1 = document.createElement("div");
-    row1.style.cssText = "display: flex; gap: 1rem; margin-bottom: 0.75rem; align-items: center; flex-wrap: wrap;";
+    // Row 1: Radio buttons
+    const radioRow = document.createElement("div");
+    radioRow.style.cssText = "display: flex; gap: 1rem; margin-bottom: 1.25rem; align-items: center; flex-wrap: wrap;";
 
     const createRadioLabel = (id: string, value: string, text: string, checked: boolean = false): [HTMLLabelElement, HTMLInputElement] => {
         const input = document.createElement("input");
@@ -506,13 +506,18 @@ export async function renderNyaaPanel(anilistId: number): Promise<void> {
     const [fullReleaseLabel, fullReleasesRadio] = createRadioLabel("nyaa-full-releases", "full-releases", "Full Releases", true);
     const [episodeReleaseLabel, episodeReleasesRadio] = createRadioLabel("nyaa-episode-releases", "episode-releases", "Episode Releases");
 
+    radioRow.appendChild(fullReleaseLabel);
+    radioRow.appendChild(episodeReleaseLabel);
+
+    // Row 1.5: Episode dropdown (Always on new line)
+    const dropdownRow = document.createElement("div");
+    dropdownRow.style.cssText = "display: none; margin-bottom: 2rem; margin-top: 2rem;"; // Hidden by default
+
     const episodeSelect = document.createElement("select");
     episodeSelect.id = "nyaa-episode-select";
-    episodeSelect.style.cssText = "padding: 0.25rem 0.5rem; display: none; min-width: 200px;";
+    episodeSelect.style.cssText = "padding: 0.25rem 0.5rem; max-width: 100%; box-sizing: border-box;";
 
-    row1.appendChild(fullReleaseLabel);
-    row1.appendChild(episodeReleaseLabel);
-    row1.appendChild(episodeSelect);
+    dropdownRow.appendChild(episodeSelect);
 
     // Row 2: Search button + Sort buttons
     const row2 = document.createElement("div");
@@ -553,7 +558,7 @@ export async function renderNyaaPanel(anilistId: number): Promise<void> {
 
     const updateEpisodeSelectVisibility = async () => {
         if (episodeReleasesRadio.checked) {
-            episodeSelect.style.display = "block";
+            dropdownRow.style.display = "block";
             if (!cachedEpisodes || cachedAnilistId !== anilistId) {
                 const loadingOption = document.createElement("option");
                 loadingOption.textContent = "Loading...";
@@ -562,7 +567,7 @@ export async function renderNyaaPanel(anilistId: number): Promise<void> {
                 populateEpisodeDropdown(episodeSelect, episodes);
             }
         } else {
-            episodeSelect.style.display = "none";
+            dropdownRow.style.display = "none";
         }
     };
 
@@ -571,7 +576,8 @@ export async function renderNyaaPanel(anilistId: number): Promise<void> {
 
     searchBtn.addEventListener("click", () => handleNyaaSearchStreaming(anilistId));
 
-    contentWrap.appendChild(row1);
+    contentWrap.appendChild(radioRow);
+    contentWrap.appendChild(dropdownRow);
     contentWrap.appendChild(row2);
 
     const resultsArea = document.createElement("div");
