@@ -434,12 +434,12 @@ function createSeadexCard(release: ReleaseEntry): HTMLElement {
             const urlBtn = createLinkButton("🔗", "Open URL", rawUrl, "#02A9FF");
             actionsContainer.appendChild(urlBtn);
         } else {
-            const copyBtn = createActionButton("📋", "Copy URL", "#02A9FF", async (ev) => {
+            const copyBtn = createActionButton("🔒", "Copy Private Tracker Path", "#02A9FF", async (ev) => {
                 ev.stopPropagation();
                 try {
                     await navigator.clipboard.writeText(rawUrl);
                     copyBtn.textContent = "✓";
-                    setTimeout(() => { copyBtn.textContent = "📋"; }, 1000);
+                    setTimeout(() => { copyBtn.textContent = "🔒"; }, 1000);
                 } catch {
                     window.prompt("Copy URL", rawUrl);
                 }
@@ -776,19 +776,19 @@ function createNyaaCard(release: NyaaMetadata, index: number): HTMLElement {
     seedersSpan.textContent = `${release.seeders || "0"} Seeders`;
     actionsContainer.appendChild(seedersSpan);
 
-    const magnetBtn = createActionButton("🧲", "Copy Magnet Link", "#02A9FF", async (ev) => {
+    const magnetBtn = createActionButton("📋", "Copy Magnet Link", "#02A9FF", async (ev) => {
         ev.stopPropagation();
         try {
             await navigator.clipboard.writeText(release.magnet);
             magnetBtn.innerHTML = "✓";
-            setTimeout(() => { magnetBtn.innerHTML = "🧲"; }, 1000);
+            setTimeout(() => { magnetBtn.innerHTML = "📋"; }, 1000);
         } catch {
             window.prompt("Copy Magnet Link", release.magnet);
         }
     });
     actionsContainer.appendChild(magnetBtn);
 
-    const urlBtn = createLinkButton("🔗", "Open on Nyaa", release.url || "#", "#02A9FF");
+    const urlBtn = createLinkButton("🔗", "Open URL", release.url || "#", "#02A9FF");
     actionsContainer.appendChild(urlBtn);
 
     const expandBtn = createExpandButton();
@@ -854,7 +854,7 @@ function createNyaaCard(release: NyaaMetadata, index: number): HTMLElement {
     header.addEventListener("click", () => {
         const isHidden = details.style.display === "none";
         details.style.display = isHidden ? "block" : "none";
-        expandBtn.textContent = isHidden ? "−" : "+";
+        expandBtn.textContent = isHidden ? "-" : "+";
     });
 
     return card;
