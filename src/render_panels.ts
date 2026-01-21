@@ -776,17 +776,23 @@ function createNyaaCard(release: NyaaMetadata, index: number): HTMLElement {
     seedersSpan.textContent = `${release.seeders || "0"} Seeders`;
     actionsContainer.appendChild(seedersSpan);
 
-    const magnetBtn = createActionButton("📋", "Copy Magnet Link", "#02A9FF", async (ev) => {
+    const openMagnetBtn = createActionButton("🧲", "Open Magnet Link", "#02A9FF", (ev) => {
+        ev.stopPropagation();
+        window.location.href = release.magnet;
+    });
+    actionsContainer.appendChild(openMagnetBtn);
+
+    const copyMagnetBtn = createActionButton("📋", "Copy Magnet Link", "#02A9FF", async (ev) => {
         ev.stopPropagation();
         try {
             await navigator.clipboard.writeText(release.magnet);
-            magnetBtn.innerHTML = "✓";
-            setTimeout(() => { magnetBtn.innerHTML = "📋"; }, 1000);
+            copyMagnetBtn.innerHTML = "✓";
+            setTimeout(() => { copyMagnetBtn.innerHTML = "📋"; }, 1000);
         } catch {
             window.prompt("Copy Magnet Link", release.magnet);
         }
     });
-    actionsContainer.appendChild(magnetBtn);
+    actionsContainer.appendChild(copyMagnetBtn);
 
     const urlBtn = createLinkButton("🔗", "Open URL", release.url || "#", "#02A9FF");
     actionsContainer.appendChild(urlBtn);
