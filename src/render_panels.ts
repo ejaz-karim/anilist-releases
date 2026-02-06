@@ -515,6 +515,8 @@ const nyaaState = {
     results: [] as NyaaMetadataEnhanced[],
     cachedEpisodes: null as Episode[] | null,
     cachedAnilistId: null as number | null,
+    filterText: '' as string,
+    filterMode: 'include' as 'include' | 'exclude',
 };
 
 export async function renderNyaaPanel(anilistId: number): Promise<void> {
@@ -561,6 +563,49 @@ export async function renderNyaaPanel(anilistId: number): Promise<void> {
 
     radioRow.appendChild(fullReleaseLabel);
     radioRow.appendChild(episodeReleaseLabel);
+
+    // ==========================================
+    // Filter Controls (Right Side)
+    // ==========================================
+    const filterContainer = document.createElement("div");
+    filterContainer.style.cssText = "display: flex; align-items: center; gap: 0.5rem; margin-left: auto;";
+
+    const filterInput = document.createElement("input");
+    filterInput.type = "text";
+    filterInput.placeholder = "Filter...";
+    filterInput.style.cssText = "padding: 0.35rem 0.5rem; border: 1px solid rgba(var(--color-foreground-rgb, 92,114,138), 0.5); border-radius: 4px; font-size: 0.9em; width: 150px; background: transparent; color: inherit;";
+    filterInput.addEventListener("input", () => {
+        nyaaState.filterText = filterInput.value;
+        applyFilter();
+    });
+
+    const filterToggleBtn = document.createElement("button");
+    filterToggleBtn.textContent = "Include";
+    filterToggleBtn.title = "Toggle Filter Mode";
+    filterToggleBtn.style.cssText = "padding: 0.35rem 0.6rem; border: none; border-radius: 4px; color: white; cursor: pointer; font-size: 0.85em; min-width: 60px; text-align: center; background: #02A9FF;";
+
+    filterToggleBtn.addEventListener("click", () => {
+        nyaaState.filterMode = nyaaState.filterMode === 'include' ? 'exclude' : 'include';
+        updateFilterToggleBtn();
+        applyFilter();
+    });
+
+    function updateFilterToggleBtn() {
+        if (nyaaState.filterMode === 'include') {
+            filterToggleBtn.textContent = "Include";
+            filterToggleBtn.style.background = "#02A9FF";
+        } else {
+            filterToggleBtn.textContent = "Exclude";
+            filterToggleBtn.style.background = "#E85D75";
+        }
+    }
+
+    // Set initial state
+    updateFilterToggleBtn();
+
+    filterContainer.appendChild(filterInput);
+    filterContainer.appendChild(filterToggleBtn);
+    radioRow.appendChild(filterContainer);
 
     const dropdownRow = document.createElement("div");
     dropdownRow.style.cssText = "display: none; margin-bottom: 2rem; margin-top: 2rem;";
@@ -662,6 +707,8 @@ async function handleNyaaSearchStreaming(anilistId: number): Promise<void> {
     }
 
     nyaaState.results = [];
+
+
     nyaaState.abortController = new AbortController();
     searchBtn.textContent = "Stop Search";
 
@@ -736,6 +783,9 @@ async function handleNyaaSearchStreaming(anilistId: number): Promise<void> {
             } else {
                 resultsContainer.insertBefore(card, resultsContainer.children[insertPos]);
             }
+
+            // Re-apply filter to new card
+            applyFilter();
 
             statusText.textContent = `Searching Nyaa... Found ${nyaaState.results.length} sources`;
         }
@@ -902,6 +952,38 @@ function compareBySort(a: NyaaMetadataEnhanced, b: NyaaMetadataEnhanced, criteri
         default:
             return 0;
     }
+}
+
+function applyFilter(): void {
+    const resultsContainer = document.getElementById("nyaa-results-list");
+    if (!resultsContainer) return;
+
+    const filterLower = nyaaState.filterText.toLowerCase().trim();
+    const cards = resultsContainer.querySelectorAll<HTMLElement>("[data-result-index]");
+
+    cards.forEach(card => {
+        const idx = parseInt(card.dataset.resultIndex || "0");
+        const result = nyaaState.results[idx];
+        if (!result) return;
+
+        const name = (result.releaseName || "").toLowerCase();
+        // If filter is empty, match everything
+        const matches = filterLower === "" || name.includes(filterLower);
+
+        let shouldShow = false;
+        if (nyaaState.filterMode === 'include') {
+            shouldShow = matches;
+        } else {
+            shouldShow = !matches;
+        }
+
+        // If in exclude mode but filter is empty, show everything (don't exclude everything)
+        if (nyaaState.filterMode === 'exclude' && filterLower === "") {
+            shouldShow = true;
+        }
+
+        card.style.display = shouldShow ? "" : "none";
+    });
 }
 
 function getInsertPosition(resultsContainer: HTMLElement, newResult: NyaaMetadataEnhanced, criteria: SortCriteria): number {
