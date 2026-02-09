@@ -8,7 +8,7 @@ export const NYAA_PANEL_ID = "nyaa-panel";
 // Colour Palette
 const COLOUR_BLUE_PRIMARY = "rgba(61, 180, 242, 1)";
 const COLOUR_BLUE_SECONDARY = "rgba(61, 180, 242, 0.65)";
-const COLOUR_GREEN = "rgba(104, 214, 57, 1)";
+const COLOUR_GREEN = "rgba(76, 175, 80, 1)";
 const COLOUR_RED = "rgba(236, 41, 75, 1)";
 const COLOUR_BG_TRANSPARENT = "rgba(var(--color-foreground-rgb, 92,114,138), 0.05)";
 const COLOUR_SURFACE_TRANSPARENT = "rgba(var(--color-foreground-rgb, 92,114,138), 0.1)";
