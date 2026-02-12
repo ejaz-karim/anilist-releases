@@ -17,9 +17,7 @@ const COLOUR_BORDER_DETAILS = "rgba(var(--color-foreground-rgb, 92,114,138), 0.2
 const COLOUR_BORDER_CONTROL = "rgba(var(--color-foreground-rgb, 92,114,138), 0.5)";
 const COLOUR_BG_META = "rgba(var(--color-background-rgb), 0.6)";
 
-// 1. Shared Utilities
-
-// Anchor Finding
+// Utilities
 export function findAnchor(): HTMLElement | null {
     const mediaRoot = provisionalContainer();
     if (!mediaRoot) return null;
@@ -51,43 +49,34 @@ function appendTextWithLineBreaks(parent: HTMLElement, text: string): void {
     });
 }
 
+// Regex Registry
+const REGEX_URL = /(https?:\/\/[^\s,]+)/g;
+const REGEX_LINE_BREAKS = /\n+/;
+const REGEX_FILE_SIZE = /^([\d.]+)\s*(bytes|[KMGT]iB|[KMGT]B)?$/i;
+
 function appendLinkifiedComparison(parent: HTMLElement, text: string): void {
-    const lines = text.split(/\n+/);
-    const urlRegex = /(https?:\/\/[^\s,]+)/g;
+    const lines = text.split(REGEX_LINE_BREAKS);
 
     lines.forEach((line, lineIndex) => {
-        const urls = line.match(urlRegex);
-        if (urls && urls.length > 1) {
-            urls.forEach((url, urlIndex) => {
-                const link = document.createElement("a");
-                link.href = url;
-                link.textContent = url;
-                link.target = "_blank";
-                link.rel = "noopener noreferrer";
-                parent.append(link);
-                if (urlIndex < urls.length - 1) parent.append(document.createElement("br"));
-            });
-        } else {
-            let lastIndex = 0;
-            let match;
-            const regex = new RegExp(urlRegex);
-            while ((match = regex.exec(line)) !== null) {
-                if (match.index > lastIndex) parent.append(line.slice(lastIndex, match.index));
-                const link = document.createElement("a");
-                link.href = match[0];
-                link.textContent = match[0];
-                link.target = "_blank";
-                link.rel = "noopener noreferrer";
-                parent.append(link);
-                lastIndex = regex.lastIndex;
-            }
-            if (lastIndex < line.length) parent.append(line.slice(lastIndex));
+        let lastIndex = 0;
+        let match;
+        REGEX_URL.lastIndex = 0;
+        while ((match = REGEX_URL.exec(line)) !== null) {
+            if (match.index > lastIndex) parent.append(line.slice(lastIndex, match.index));
+            const link = document.createElement("a");
+            link.href = match[0];
+            link.textContent = match[0];
+            link.target = "_blank";
+            link.rel = "noopener noreferrer";
+            parent.append(link);
+            lastIndex = REGEX_URL.lastIndex;
         }
+        if (lastIndex < line.length) parent.append(line.slice(lastIndex));
         if (lineIndex < lines.length - 1) parent.append(document.createElement("br"));
     });
 }
 
-// Data Parsing
+// Helpers
 const UNIT_MULTIPLIERS: Record<string, number> = {
     "": 1, "BYTES": 1,
     "KIB": 1024, "KB": 1000,
@@ -98,11 +87,22 @@ const UNIT_MULTIPLIERS: Record<string, number> = {
 
 function parseFileSize(sizeStr: string | undefined): number {
     if (!sizeStr) return 0;
-    const match = sizeStr.match(/^([\d.]+)\s*(bytes|[KMGT]iB|[KMGT]B)?$/i);
+    const match = sizeStr.match(REGEX_FILE_SIZE);
     if (!match) return 0;
     const value = parseFloat(match[1]);
     const unit = (match[2] ?? "").toUpperCase();
     return value * (UNIT_MULTIPLIERS[unit] ?? 1);
+}
+
+// Memoized Data Parsing
+const fileSizeCache = new Map<string, number>();
+function parseFileSizeMemoized(sizeStr: string | undefined): number {
+    if (!sizeStr) return 0;
+    let cached = fileSizeCache.get(sizeStr);
+    if (cached !== undefined) return cached;
+    const result = parseFileSize(sizeStr);
+    fileSizeCache.set(sizeStr, result);
+    return result;
 }
 
 // Copy to Clipboard helper
@@ -126,13 +126,69 @@ function setupAccordion(header: HTMLElement, details: HTMLElement, expandBtn: HT
     });
 }
 
-// 2. UI Component Helpers
+// UI Helpers
 
 const BASE_BTN_STYLE = "border: 1px solid transparent; cursor: pointer; font-size: 0.9em; padding: 0.35rem 0.5rem; border-radius: 4px; color: white;";
 const CONTROL_STYLE = `padding: 0.35rem 0.5rem; border: 1px solid ${COLOUR_BORDER_CONTROL}; border-radius: 4px; font-size: 0.9em; background: transparent; color: inherit;`;
 const FLEX_COLUMN_GAP_HALF = "display: flex; flex-direction: column; gap: 0.5rem;";
 const FLEX_COLUMN_GAP_ONE = "display: flex; flex-direction: column; gap: 1rem;";
-const FLEX_ROW_WRAP = "display: flex; gap: 1.5rem; flex-wrap: wrap;";
+
+function createNyaaCardBase(): HTMLElement {
+    const card = document.createElement("div");
+    card.className = "nyaa-result-card";
+    card.style.cssText = `border: 1px solid ${COLOUR_BORDER_TRANSPARENT}; border-radius: 6px; overflow: hidden; transition: all 0.2s ease; contain: content;`;
+
+    const header = document.createElement("div");
+    header.className = "card-header";
+    header.style.cssText = `display: flex; align-items: center; padding: 0.75rem 1rem; gap: 0.75rem; background: ${COLOUR_BG_TRANSPARENT}; cursor: pointer;`;
+
+    const title = document.createElement("span");
+    title.className = "card-title";
+    title.style.cssText = "flex: 1; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;";
+
+    const actions = document.createElement("div");
+    actions.className = "card-actions";
+    actions.style.cssText = "display: flex; align-items: center; gap: 0.75rem; margin-left: auto; flex-shrink: 0;";
+
+    const seeders = document.createElement("span");
+    seeders.className = "seeders-count";
+    seeders.style.cssText = `color: ${COLOUR_GREEN}; font-weight: 600; min-width: 90px; text-align: right; margin-right: 0.5rem;`;
+
+    const openMagnet = document.createElement("button");
+    openMagnet.className = "action-open-magnet";
+    openMagnet.title = "Open Magnet";
+    openMagnet.textContent = "🧲";
+    openMagnet.style.cssText = `background: ${COLOUR_BLUE_PRIMARY}; ${BASE_BTN_STYLE}`;
+
+    const copyMagnet = document.createElement("button");
+    copyMagnet.className = "action-copy-magnet";
+    copyMagnet.title = "Copy Magnet";
+    copyMagnet.textContent = "📋";
+    copyMagnet.style.cssText = `background: ${COLOUR_BLUE_PRIMARY}; ${BASE_BTN_STYLE}`;
+
+    const openUrl = document.createElement("a");
+    openUrl.className = "action-open-url";
+    openUrl.title = "Open URL";
+    openUrl.textContent = "🔗";
+    openUrl.target = "_blank";
+    openUrl.rel = "noopener noreferrer";
+    openUrl.style.cssText = `background: ${COLOUR_BLUE_PRIMARY}; text-decoration: none; display: inline-block; ${BASE_BTN_STYLE}`;
+
+    const expandBtn = document.createElement("span");
+    expandBtn.className = "expand-btn";
+    expandBtn.textContent = "+";
+    expandBtn.style.cssText = `font-size: 1.4em; font-weight: 600; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 4px; background: ${COLOUR_SURFACE_TRANSPARENT};`;
+
+    actions.append(seeders, openMagnet, copyMagnet, openUrl, expandBtn);
+    header.append(title, actions);
+
+    const details = document.createElement("div");
+    details.className = "card-details";
+    details.style.cssText = `display: none; padding: 0.75rem 1rem; border-top: 1px solid ${COLOUR_BORDER_DETAILS}; font-size: 0.9em;`;
+
+    card.append(header, details);
+    return card;
+}
 
 function createCardContainer(): HTMLElement {
     const card = document.createElement("div");
@@ -173,13 +229,6 @@ function createTitleContainer(text: string, tooltip: string = ""): HTMLElement {
     return container;
 }
 
-function createSimpleTitle(text: string): HTMLElement {
-    const title = document.createElement("span");
-    title.style.cssText = "flex: 1; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;";
-    title.textContent = text;
-    title.title = text;
-    return title;
-}
 
 function createActionContainer(): HTMLElement {
     const container = document.createElement("div");
@@ -228,23 +277,66 @@ function createLinkButton(icon: string, title: string, url: string, color: strin
     return link;
 }
 
-function createDetailSpan(label: string, value: string, color?: string): HTMLElement {
-    const span = document.createElement("span");
-    if (color) span.style.color = color;
-    const strong = document.createElement("strong");
-    strong.textContent = label;
-    span.append(strong, " " + value);
-    return span;
+// List Components
+function createSharedList(): HTMLUListElement {
+    const list = document.createElement("ul");
+    list.style.cssText = "list-style: none; padding: 0; margin: 0;";
+    return list;
+}
+
+function createSharedListItem(label: string, value: string, opts: { valueColor?: string, aligned?: boolean, bold?: boolean, boldValue?: boolean } = {}): HTMLLIElement {
+    const { valueColor, aligned = true, bold = true, boldValue = false } = opts;
+    const li = document.createElement("li");
+
+    // Aligned mode uses a 2-column grid to ensure absolute wrapping consistency
+    // Non-aligned mode uses a simple flex-start layout
+    if (aligned) {
+        li.style.cssText = `padding: 0.35rem 0; border-bottom: 1px solid ${COLOUR_SURFACE_TRANSPARENT}; display: grid; grid-template-columns: 1fr 80px; gap: 6em; align-items: baseline;`;
+    } else {
+        li.style.cssText = `padding: 0.35rem 0; border-bottom: 1px solid ${COLOUR_SURFACE_TRANSPARENT}; display: flex; justify-content: flex-start; align-items: baseline; gap: 0.75rem;`;
+    }
+
+    const labelSpan = document.createElement("span");
+    labelSpan.style.fontWeight = bold ? "600" : "400";
+    labelSpan.style.overflowWrap = "anywhere";
+    labelSpan.style.wordBreak = "break-all"; // Use break-all for precise byte-level wrapping consistency
+    labelSpan.style.minWidth = "0";
+    labelSpan.textContent = label;
+
+    const valueSpan = document.createElement("span");
+    if (valueColor) valueSpan.style.color = valueColor;
+    valueSpan.style.fontWeight = boldValue ? "600" : "400";
+    valueSpan.style.whiteSpace = "nowrap";
+    valueSpan.style.flexShrink = "0";
+    if (aligned) {
+        valueSpan.style.textAlign = "right";
+    }
+    valueSpan.textContent = value;
+
+    li.append(labelSpan, valueSpan);
+    return li;
+}
+
+function createDetailRow(items: HTMLElement[]): HTMLElement {
+    const row = document.createElement("div");
+    row.style.cssText = `display: flex; flex-wrap: wrap; gap: 1.5rem; border-bottom: 1px solid ${COLOUR_SURFACE_TRANSPARENT}; padding: 0.35rem 0;`;
+    items.forEach(item => {
+        // Remove individual borders and padding if used inside a row
+        item.style.borderBottom = "none";
+        item.style.padding = "0";
+        row.append(item);
+    });
+    return row;
 }
 
 function createDetailsContainer(): HTMLElement {
     const details = document.createElement("div");
     details.className = "card-details";
-    details.style.cssText = `display: none; padding: 0.75rem 1rem; border-top: 1px solid ${COLOUR_BORDER_DETAILS}; font-size: 0.9em;`;
+    details.style.cssText = `display: none; padding: 0.5rem 1rem; border-top: 1px solid ${COLOUR_BORDER_DETAILS}; font-size: 0.9em;`;
     return details;
 }
 
-// 3. Panel Placement
+// Panel Placement
 
 function placePanel(
     panelId: string,
@@ -315,7 +407,7 @@ function insertPanel(panel: HTMLElement, afterElementId?: string): void {
     }
 }
 
-// 4. SeaDex Panel
+// SeaDex Panel
 
 export function renderSeadexPanel(data: ReleaseData, anilistId: number): void {
     const content = document.createElement("div");
@@ -349,7 +441,7 @@ export function renderSeadexPanel(data: ReleaseData, anilistId: number): void {
     contentWrap.append(resultsContainer);
     content.append(contentWrap);
 
-    // Mount
+
     placePanel(SEADEX_PANEL_ID, anilistId, content);
 }
 
@@ -449,18 +541,9 @@ function createSeadexCard(release: ReleaseEntry): HTMLElement {
         episodesHeader.style.cssText = "font-weight: 600; margin-bottom: 0.5rem; margin-top: 0.5rem;";
         details.append(episodesHeader);
 
-        const list = document.createElement("ul");
-        list.style.cssText = "list-style: none; padding-left: 0.5rem; margin: 0;";
+        const list = createSharedList();
         episodeList.forEach(({ name, size }) => {
-            const li = document.createElement("li");
-            li.style.cssText = `padding: 0.25rem 0; border-bottom: 1px solid ${COLOUR_SURFACE_TRANSPARENT}; display: flex; justify-content: space-between;`;
-            const nSpan = document.createElement("span");
-            nSpan.textContent = `📄 ${name ?? "Unknown Episode"}`;
-            const sSpan = document.createElement("span");
-            sSpan.textContent = size ?? "";
-            sSpan.style.opacity = "0.8";
-            li.append(nSpan, sSpan);
-            list.append(li);
+            list.append(createSharedListItem(`📄 ${name ?? "Unknown Episode"}`, size ?? "", { bold: false }));
         });
         details.append(list);
     }
@@ -471,7 +554,7 @@ function createSeadexCard(release: ReleaseEntry): HTMLElement {
     return card;
 }
 
-// 5. Nyaa Panel
+// Nyaa Panel
 
 type SortCriteria = 'seeders' | 'date' | 'size' | 'completed';
 
@@ -481,15 +564,18 @@ interface NyaaMetadataEnhanced extends NyaaMetadata {
     _parsedDate?: number;
     _parsedSeeders?: number;
     _parsedCompleted?: number;
+    _card?: HTMLElement;
 }
 
 const nyaaState = {
     sortCriteria: 'seeders' as SortCriteria,
     abortController: null as AbortController | null,
     results: [] as NyaaMetadataEnhanced[],
+    cardMap: new Map<number, HTMLElement>(),
     cachedEpisodes: null as Episode[] | null,
     cachedAnilistId: null as number | null,
     filterText: '' as string,
+    filterTextPrev: '' as string,
     filterMode: 'include' as 'include' | 'exclude',
 };
 
@@ -765,6 +851,52 @@ export async function renderNyaaPanel(anilistId: number): Promise<void> {
     const resultsArea = document.createElement("div");
     resultsArea.id = "nyaa-results";
 
+    // Global Event Delegation for Magnet Buttons and Expansion
+    resultsArea.addEventListener("click", (ev) => {
+        const target = ev.target as HTMLElement;
+        const card = target.closest(".nyaa-result-card") as HTMLElement;
+        if (!card) return;
+
+        const idx = parseInt(card.dataset.resultIndex ?? "-1");
+        const release = nyaaState.results[idx];
+        if (!release) return;
+
+        // 1. Handle Action Buttons (Higher Priority)
+        const magnetBtn = target.closest(".action-open-magnet");
+        if (magnetBtn) {
+            ev.stopPropagation();
+            window.location.href = release.magnet;
+            return;
+        }
+
+        const copyBtn = target.closest(".action-copy-magnet") as HTMLElement;
+        if (copyBtn) {
+            ev.stopPropagation();
+            copyToClipboard(release.magnet, copyBtn, "✓", "📋");
+            return;
+        }
+
+        const urlBtn = target.closest(".action-open-url");
+        if (urlBtn) {
+            ev.stopPropagation();
+            // natural <a> behavior
+            return;
+        }
+
+        // 2. Handle Expansion (if header clicked)
+        const header = target.closest(".card-header");
+        if (header) {
+            const details = card.querySelector(".card-details") as HTMLElement;
+            const expandBtn = card.querySelector(".expand-btn") as HTMLElement;
+            const isHidden = details.style.display === "none";
+            if (isHidden) {
+                hydrateNyaaCard(card, release);
+            }
+            details.style.display = isHidden ? "block" : "none";
+            expandBtn.textContent = isHidden ? "-" : "+";
+        }
+    });
+
     contentWrap.append(headerRow, dropdownRow, controlsRow, resultsArea);
     content.append(contentWrap);
 
@@ -778,7 +910,7 @@ export function ensureNyaaPanelPlacement(currentAniId: number | null): void {
     insertPanel(nyaaPanel, SEADEX_PANEL_ID);
 }
 
-// Nyaa Search Logic
+// Search Logic
 
 async function handleNyaaSearchStreaming(anilistId: number): Promise<void> {
     const resultsArea = document.getElementById("nyaa-results");
@@ -798,7 +930,7 @@ async function handleNyaaSearchStreaming(anilistId: number): Promise<void> {
     }
 
     nyaaState.results = [];
-
+    nyaaState.cardMap.clear();
 
     const currentController = new AbortController();
     nyaaState.abortController = currentController;
@@ -855,13 +987,27 @@ async function handleNyaaSearchStreaming(anilistId: number): Promise<void> {
             generator = anidbApi.streamNyaaAnidbEpisodeMetadata(anilistId, selectedEpisode!, nyaaState.abortController.signal);
         }
 
+        let statusFrameRequested = false;
+        const updateStatusText = (text: string, color?: string) => {
+            if (statusFrameRequested) return;
+            statusFrameRequested = true;
+            requestAnimationFrame(() => {
+                const el = document.getElementById("nyaa-search-status");
+                if (el) {
+                    el.textContent = text;
+                    if (color) el.style.color = color;
+                }
+                statusFrameRequested = false;
+            });
+        };
+
         for await (const result of generator) {
             if (currentController.signal.aborted) break;
 
             const enhancedResult = result as NyaaMetadataEnhanced;
             const { fileSize, date, seeders, completed } = enhancedResult;
 
-            enhancedResult._parsedSize = parseFileSize(fileSize);
+            enhancedResult._parsedSize = parseFileSizeMemoized(fileSize);
             enhancedResult._parsedDate = new Date(date ?? "1970-01-01").getTime();
             enhancedResult._parsedSeeders = parseInt(seeders ?? "0");
             enhancedResult._parsedCompleted = parseInt(completed ?? "0");
@@ -870,6 +1016,8 @@ async function handleNyaaSearchStreaming(anilistId: number): Promise<void> {
             nyaaState.results.push(enhancedResult);
 
             const card = createNyaaCard(enhancedResult, idx);
+            nyaaState.cardMap.set(idx, card);
+
             const pos = getInsertPosition(resultsContainer, enhancedResult, nyaaState.sortCriteria);
 
             if (pos >= resultsContainer.children.length) resultsContainer.append(card);
@@ -877,14 +1025,14 @@ async function handleNyaaSearchStreaming(anilistId: number): Promise<void> {
 
             applyFilter();
             if (!currentController.signal.aborted) {
-                statusText.textContent = `Searching Nyaa... Found ${nyaaState.results.length} sources`;
+                updateStatusText(`Searching Nyaa... Found ${nyaaState.results.length} sources`);
             }
         }
 
         if (nyaaState.abortController === currentController) {
-            statusText.style.color = COLOUR_BLUE_PRIMARY;
             const count = nyaaState.results.length;
-            statusText.textContent = count === 0 ? "No releases found with active seeders" : `Search complete. Found ${count} sources`;
+            const finalMsg = count === 0 ? "No releases found with active seeders" : `Search complete. Found ${count} sources`;
+            updateStatusText(finalMsg, COLOUR_BLUE_PRIMARY);
         }
     } catch (e) {
         if ((e as Error).name !== "AbortError" && nyaaState.abortController === currentController) {
@@ -902,84 +1050,77 @@ async function handleNyaaSearchStreaming(anilistId: number): Promise<void> {
     }
 }
 
-function createNyaaCard(release: NyaaMetadata, index: number): HTMLElement {
-    const { releaseName, seeders, magnet, url, category, leechers, date, fileSize, completed, files } = release;
-    const card = createCardContainer();
-    card.className = "nyaa-result-card";
+function createNyaaCard(release: NyaaMetadataEnhanced, index: number): HTMLElement {
+    const card = createNyaaCardBase();
     card.dataset.resultIndex = String(index);
 
-    const header = createCardHeader();
-    const title = createSimpleTitle(releaseName ?? "Unknown Release");
-    const actionsContainer = createActionContainer();
+    const titleEl = card.querySelector(".card-title") as HTMLElement;
+    const seedersEl = card.querySelector(".seeders-count") as HTMLElement;
+    const urlBtn = card.querySelector(".action-open-url") as HTMLAnchorElement;
 
-    const sSpan = document.createElement("span");
-    sSpan.style.cssText = `color: ${COLOUR_GREEN}; font-weight: 600; min-width: 90px; text-align: right; margin-right: 0.5rem;`;
-    sSpan.textContent = `${seeders ?? "0"} Seeders`;
-    actionsContainer.append(sSpan);
+    titleEl.textContent = release.releaseName ?? "Unknown Release";
+    titleEl.title = release.releaseName ?? "";
+    seedersEl.textContent = `${release.seeders ?? "0"} Seeders`;
 
-    actionsContainer.append(createActionButton("🧲", "Open Magnet", COLOUR_BLUE_PRIMARY, (ev) => {
-        ev.stopPropagation();
-        window.location.href = magnet;
-    }));
+    if (release.url) {
+        urlBtn.href = release.url;
+    } else {
+        urlBtn.style.display = "none";
+    }
 
-    const copyBtn = createActionButton("📋", "Copy Magnet", COLOUR_BLUE_PRIMARY, (ev) => {
-        ev.stopPropagation();
-        copyToClipboard(magnet, copyBtn, "✓", "📋");
-    });
-    actionsContainer.append(copyBtn);
+    // Lazy Hydration on First Expand handled by Global Event Delegation
+    release._card = card;
+    return card;
+}
 
-    if (url) actionsContainer.append(createLinkButton("🔗", "Open URL", url, COLOUR_BLUE_PRIMARY));
+function hydrateNyaaCard(card: HTMLElement, release: NyaaMetadataEnhanced): void {
+    const details = card.querySelector(".card-details") as HTMLElement;
+    if (details.dataset.hydrated === "true") return;
 
-    const expandBtn = createExpandButton();
-    actionsContainer.append(expandBtn);
-    header.append(title, actionsContainer);
+    const { releaseName, category, seeders, leechers, date, fileSize, completed, submitter, files } = release;
 
-    const details = createDetailsContainer();
     const fullTitle = document.createElement("div");
     fullTitle.style.cssText = "font-weight: 600; margin-bottom: 0.75rem; word-break: break-word;";
     fullTitle.textContent = releaseName ?? "Unknown Release";
     details.append(fullTitle);
 
-    const createRow = () => {
-        const row = document.createElement("div");
-        row.style.cssText = `${FLEX_ROW_WRAP} margin-bottom: 0.5rem;`;
-        return row;
-    };
+    const list = createSharedList();
 
-    const row1 = createRow();
-    row1.append(
-        createDetailSpan("Category:", category ?? "Unknown"),
-        createDetailSpan("Seeders:", seeders ?? "0", COLOUR_GREEN),
-        createDetailSpan("Leechers:", leechers ?? "0", COLOUR_RED)
-    );
+    // Row 1: Category + Date
+    list.append(createDetailRow([
+        createSharedListItem("Category:", category ?? "Unknown", { aligned: false }),
+        createSharedListItem("Date:", date ?? "Unknown", { aligned: false })
+    ]));
 
-    const row2 = createRow();
-    row2.append(
-        createDetailSpan("Date:", date ?? "Unknown"),
-        createDetailSpan("Size:", fileSize ?? "Unknown"),
-        createDetailSpan("Completed:", completed ?? "0")
-    );
+    // Row 2: Metrics
+    list.append(createDetailRow([
+        createSharedListItem("Seeders:", seeders ?? "0", { valueColor: COLOUR_GREEN, aligned: false }),
+        createSharedListItem("Leechers:", leechers ?? "0", { valueColor: COLOUR_RED, aligned: false }),
+        createSharedListItem("Completed:", completed ?? "0", { aligned: false })
+    ]));
 
-    details.append(row1, row2, createDetailSpan("Submitter:", release.submitter ?? "Unknown"));
+    // Row 3: Submitter + Size
+    list.append(createDetailRow([
+        createSharedListItem("Submitter:", submitter ?? "Unknown", { aligned: false }),
+        createSharedListItem("Size:", fileSize ?? "Unknown", { aligned: false })
+    ]));
+
+    details.append(list);
 
     if (files?.length) {
         details.append(createFileSection(files));
     }
 
-    card.append(header, details);
-    setupAccordion(header, details, expandBtn);
-
-    return card;
+    details.dataset.hydrated = "true";
 }
 
 function createFileSection(files: NyaaFileEntry[]): HTMLElement {
     const section = document.createElement("div");
-    section.style.cssText = "margin-top: 0.75rem;";
+    section.style.marginTop = "0.75rem";
 
-    const toggle = document.createElement("a");
-    toggle.textContent = "📁 Show Files";
-    toggle.className = "link";
-    toggle.style.cursor = "pointer";
+    const toggle = document.createElement("button");
+    toggle.textContent = "Files"; // Discreet: No emoji
+    toggle.style.cssText = `background: ${COLOUR_BLUE_PRIMARY}; color: white; border: none; border-radius: 4px; padding: 0.25rem 0; font-size: 0.9em; cursor: pointer; text-align: center; font-weight: 500; width: 35px;`;
 
     const container = document.createElement("div");
     container.style.cssText = "display: none; margin-top: 0.5rem;";
@@ -988,7 +1129,7 @@ function createFileSection(files: NyaaFileEntry[]): HTMLElement {
         ev.stopPropagation();
         const isHidden = container.style.display === "none";
         container.style.display = isHidden ? "block" : "none";
-        toggle.textContent = isHidden ? "📁 Hide Files" : "📁 Show Files";
+        toggle.textContent = isHidden ? "Hide" : "Files";
     });
 
     container.append(renderFileTree(files));
@@ -997,28 +1138,34 @@ function createFileSection(files: NyaaFileEntry[]): HTMLElement {
 }
 
 function renderFileTree(entries: NyaaFileEntry[], depth: number = 0): HTMLUListElement {
-    const ul = document.createElement("ul");
-    ul.style.cssText = `padding-left: ${depth === 0 ? "1rem" : "1.5rem"}; margin: 0; list-style: none;`;
+    const ul = createSharedList();
+    if (depth > 0) {
+        ul.style.paddingLeft = "1rem";
+    }
 
     entries.forEach(entry => {
-        const li = document.createElement("li");
-        li.style.cssText = "margin: 0.25rem 0;";
-
         if (entry.type === "folder") {
-            li.textContent = `📁 ${entry.name ?? "Unnamed Folder"}`;
+            const folderItem = createSharedListItem(`📁 ${entry.name ?? "Unnamed Folder"}`, "", { bold: true });
+            folderItem.style.marginBottom = "0.35rem"; // Add breathing room below folder header
+            ul.append(folderItem);
+
             if (entry.contents?.length) {
-                li.append(renderFileTree(entry.contents, depth + 1));
+                const subTree = renderFileTree(entry.contents, depth + 1);
+                const li = document.createElement("li");
+                li.style.listStyle = "none";
+                li.append(subTree);
+                ul.append(li);
             }
         } else {
-            li.textContent = `📄 ${entry.name ?? "Unnamed File"}${entry.size ? ` (${entry.size})` : ""}`;
+            const cleanSize = entry.size?.replace(/^\(|\)$/g, "") ?? "";
+            ul.append(createSharedListItem(`📄 ${entry.name ?? "Unnamed File"}`, cleanSize, { bold: false, boldValue: false }));
         }
-        ul.append(li);
     });
 
     return ul;
 }
 
-// Sort logic
+// Sorting & Filtering
 function compareBySort(a: NyaaMetadataEnhanced, b: NyaaMetadataEnhanced, criteria: SortCriteria): number {
     const map: Record<SortCriteria, keyof NyaaMetadataEnhanced> = {
         seeders: '_parsedSeeders',
@@ -1032,21 +1179,21 @@ function compareBySort(a: NyaaMetadataEnhanced, b: NyaaMetadataEnhanced, criteri
 
 // Apply filter to results
 function applyFilter(): void {
+    const filterText = nyaaState.filterText.toLowerCase().trim();
+    if (filterText === nyaaState.filterTextPrev) return;
+    nyaaState.filterTextPrev = filterText;
+
     const resultsContainer = document.getElementById("nyaa-results-list");
     if (!resultsContainer) return;
 
-    const filterText = nyaaState.filterText.toLowerCase().trim();
     const tokens = filterText.split(/\s+/).filter(t => t.length > 0);
-    const cards = resultsContainer.querySelectorAll<HTMLElement>("[data-result-index]");
 
-    cards.forEach(card => {
-        const idx = parseInt(card.dataset.resultIndex ?? "0");
-        const result = nyaaState.results[idx];
-        if (!result) return;
+    nyaaState.results.forEach((result, idx) => {
+        const card = nyaaState.cardMap.get(idx);
+        if (!card) return;
 
         const name = (result.releaseName ?? "").toLowerCase();
 
-        // If filter is empty, show everything (unless it's include mode, but empty tokens handle that)
         if (tokens.length === 0) {
             card.style.display = "";
             return;
@@ -1054,29 +1201,33 @@ function applyFilter(): void {
 
         let shouldShow = false;
         if (nyaaState.filterMode === 'include') {
-            // Include mode: ALL tokens must be present
-            const matchesAll = tokens.every(token => name.includes(token));
-            shouldShow = matchesAll;
+            shouldShow = tokens.every(token => name.includes(token));
         } else {
-            // Exclude mode: Hide if ANY token matches
-            const matchesAny = tokens.some(token => name.includes(token));
-            shouldShow = !matchesAny;
+            shouldShow = !tokens.some(token => name.includes(token));
         }
 
         card.style.display = shouldShow ? "" : "none";
     });
 }
 
-// Find insertion point for sorted streaming
+// O(log N) Binary Search Insertion
 function getInsertPosition(resultsContainer: HTMLElement, newResult: NyaaMetadataEnhanced, criteria: SortCriteria): number {
-    const cards = resultsContainer.querySelectorAll<HTMLElement>("[data-result-index]");
-    for (let i = 0; i < cards.length; i++) {
-        const idx = parseInt(cards[i].dataset.resultIndex ?? "0");
-        if (compareBySort(newResult, nyaaState.results[idx], criteria) < 0) {
-            return i;
+    const children = resultsContainer.children;
+    let low = 0;
+    let high = children.length;
+
+    while (low < high) {
+        let mid = (low + high) >>> 1;
+        const midIdx = parseInt((children[mid] as HTMLElement).dataset.resultIndex ?? "0");
+        const midResult = nyaaState.results[midIdx];
+
+        if (compareBySort(newResult, midResult, criteria) < 0) {
+            high = mid;
+        } else {
+            low = mid + 1;
         }
     }
-    return cards.length;
+    return low;
 }
 
 function handleSortChange(criteria: SortCriteria): void {
@@ -1097,18 +1248,16 @@ function handleSortChange(criteria: SortCriteria): void {
         .map((_: NyaaMetadataEnhanced, idx: number) => idx)
         .sort((a: number, b: number) => compareBySort(nyaaState.results[a], nyaaState.results[b], criteria));
 
-    const cards = Array.from(resultsContainer.querySelectorAll<HTMLElement>("[data-result-index]"));
     const fragment = document.createDocumentFragment();
-
     sortedIndices.forEach((idx: number) => {
-        const card = cards.find(c => c.dataset.resultIndex === String(idx));
+        const card = nyaaState.cardMap.get(idx);
         if (card) fragment.append(card);
     });
 
     resultsContainer.replaceChildren(fragment);
 }
 
-// Load AniDB titles/episodes
+// AniDB Integration
 async function loadEpisodeData(anilistId: number): Promise<Episode[]> {
     if (nyaaState.cachedEpisodes && nyaaState.cachedAnilistId === anilistId) {
         return nyaaState.cachedEpisodes;
