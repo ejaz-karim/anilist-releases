@@ -779,17 +779,16 @@ async function handleNyaaSearchStreaming(anilistId: number): Promise<void> {
         }
 
         // Throttled status updater
-        let rafPending = false;
+        let rafId = 0;
         const updateStatus = (text: string, colour?: string) => {
-            if (rafPending) return;
-            rafPending = true;
-            requestAnimationFrame(() => {
+            if (rafId) return;
+            rafId = requestAnimationFrame(() => {
                 const el = document.getElementById("nyaa-search-status");
                 if (el) {
                     el.textContent = text;
                     if (colour) el.style.color = colour;
                 }
-                rafPending = false;
+                rafId = 0;
             });
         };
 
@@ -830,19 +829,21 @@ async function handleNyaaSearchStreaming(anilistId: number): Promise<void> {
         }
 
         // Search complete
+        cancelAnimationFrame(rafId);
         if (nyaaState.abortController === currentController) {
             const count = nyaaState.results.length;
-            updateStatus(
-                count === 0 ? "No releases found with active seeders" : `Search complete. Found ${count} sources`,
-                COLOURS.BLUE_PRIMARY,
-            );
+            const el = document.getElementById("nyaa-search-status");
+            if (el) {
+                el.textContent = count === 0 ? "No releases found with active seeders" : `Search complete. Found ${count} sources`;
+                el.style.color = COLOURS.BLUE_PRIMARY;
+            }
         }
     } catch (e: unknown) {
         const error = e as { name?: string };
         if (error.name !== "AbortError" && nyaaState.abortController === currentController) {
             resultsArea.replaceChildren(make("p", {
                 style: `color: ${COLOURS.RED}; margin-top: 1rem;`,
-                text: "Error searching Nyaa (Animetosho.org may not have indexed any releases)",
+                text: "Error searching Nyaa",
             }));
         }
     } finally {
