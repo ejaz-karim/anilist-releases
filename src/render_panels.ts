@@ -65,6 +65,7 @@ interface ListItemOptions {
     aligned?: boolean;
     bold?: boolean;
     boldValue?: boolean;
+    hangingIndent?: boolean | string;
 }
 
 interface NyaaMetadataEnhanced extends NyaaMetadata {
@@ -166,13 +167,17 @@ function createListItem(
     value: string,
     opts: ListItemOptions = {},
 ): HTMLLIElement {
-    const { valueColour, aligned = true, bold = true, boldValue = false } = opts;
+    const { valueColour, aligned = true, bold = true, boldValue = false, hangingIndent = false } = opts;
 
     const containerStyle = aligned
         ? `padding: 0.35rem 0; border-bottom: 1px solid ${COLOURS.SURFACE_TRANSPARENT}; display: grid; grid-template-columns: 1fr 80px; gap: 6em; align-items: baseline;`
         : `padding: 0.35rem 0; border-bottom: 1px solid ${COLOURS.SURFACE_TRANSPARENT}; display: flex; justify-content: flex-start; align-items: baseline; gap: 0.75rem;`;
 
-    const labelStyle = `font-weight: ${bold ? "600" : "400"}; overflow-wrap: anywhere; word-break: break-all; min-width: 0;`;
+    let labelStyle = `font-weight: ${bold ? "600" : "400"}; overflow-wrap: anywhere; word-break: break-all; min-width: 0;`;
+    if (hangingIndent) {
+        const indent = typeof hangingIndent === "string" ? hangingIndent : "1.5em";
+        labelStyle += ` padding-left: ${indent}; text-indent: -${indent};`;
+    }
 
     const valueStyleParts: string[] = [
         `font-weight: ${boldValue ? "600" : "400"}`,
@@ -495,9 +500,8 @@ function createSeadexCard(release: ReleaseEntry): HTMLElement {
 
     if (episodeList?.length) {
         details.append(
-            make("div", { text: "Episodes:", style: "font-weight: 600; margin-bottom: 0.5rem; margin-top: 0.5rem;" }),
             createList(episodeList.map(({ name, size }) =>
-                createListItem(`📄 ${name ?? "Unknown Episode"}`, size ?? "", { bold: false }),
+                createListItem(`📄 ${name ?? "Unknown Episode"}`, size ?? "", { bold: false, hangingIndent: true }),
             )),
         );
     }
@@ -571,9 +575,8 @@ export async function renderNyaaPanel(anilistId: number): Promise<void> {
                     const query = queryInput.value.trim().replace(/\s+/g, "+");
                     const rssUrl = "https://nyaa.si/?page=rss" + (user ? `&u=${user}` : "") + (query ? `&q=${query}` : "");
                     await copyToClipboard(rssUrl);
-                    const original = rssBtn.textContent;
                     rssBtn.textContent = "✓";
-                    setTimeout(() => { rssBtn.textContent = original; }, 1000);
+                    setTimeout(() => { rssBtn.textContent = "Copy RSS"; }, 1000);
                 }
             }) as unknown as EventListener,
         },
@@ -584,7 +587,7 @@ export async function renderNyaaPanel(anilistId: number): Promise<void> {
         id: "search-nyaa-btn",
         text: "Start Search",
         className: "button",
-        style: "padding: 0.35rem 1rem; cursor: pointer; flex-shrink: 0; font-size: 0.9em;",
+        style: "padding: 0.35rem 1rem; cursor: pointer; flex-shrink: 0; font-size: 0.9em; min-width: 100px; text-align: center; box-sizing: border-box;",
     });
     searchBtn.addEventListener("click", () => handleNyaaSearchStreaming(anilistId));
 
@@ -1001,7 +1004,7 @@ function renderFileTree(entries: NyaaFileEntry[], depth = 0): HTMLUListElement {
 
     for (const entry of entries) {
         if (entry.type === "folder") {
-            const folderItem = createListItem(`📁 ${entry.name ?? "Unnamed Folder"}`, "", { bold: true });
+            const folderItem = createListItem(`📁 ${entry.name ?? "Unnamed Folder"}`, "", { bold: true, hangingIndent: "1.6em" });
             folderItem.style.marginBottom = "0.35rem";
             list.append(folderItem);
             if (entry.contents?.length) {
@@ -1009,7 +1012,7 @@ function renderFileTree(entries: NyaaFileEntry[], depth = 0): HTMLUListElement {
             }
         } else {
             const size = entry.size?.replace(/^\(|\)$/g, "") ?? "";
-            list.append(createListItem(`📄 ${entry.name ?? "Unnamed File"}`, size, { bold: false, boldValue: false }));
+            list.append(createListItem(`📄 ${entry.name ?? "Unnamed File"}`, size, { bold: false, boldValue: false, hangingIndent: true }));
         }
     }
 
