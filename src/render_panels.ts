@@ -600,7 +600,7 @@ export async function renderNyaaPanel(anilistId: number): Promise<void> {
                 text: label,
                 className: "button",
                 dataset: { sortCriteria: criteria },
-                style: `padding: 0.35rem 0.5rem; cursor: pointer; font-size: 0.9em; border-radius: 4px; border: none; background: ${criteria === "seeders" ? COLOURS.BLUE_PRIMARY : COLOURS.BLUE_SECONDARY}; color: white; flex-shrink: 0;`,
+                style: `padding: 0.35rem 0.5rem; cursor: pointer; font-size: 0.9em; border-radius: 4px; border: none; background: ${criteria === nyaaState.sortCriteria ? COLOURS.BLUE_PRIMARY : COLOURS.BLUE_SECONDARY}; color: white; flex-shrink: 0;`,
                 events: {
                     click: (() => handleSortChange(criteria)) as unknown as EventListener,
                 },

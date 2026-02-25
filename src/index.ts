@@ -1,4 +1,3 @@
-import { getAnilistId } from "./utility";
 import { SeadexApi } from "./seadex_api";
 import {
     renderSeadexPanel,
@@ -18,8 +17,17 @@ const injectionState = {
     contentObserver: null as MutationObserver | null,
 };
 
+function getAnilistId(): number | null {
+    const match = window.location.pathname.match(/anime\/(\d+)/);
+    return match ? parseInt(match[1], 10) : null;
+}
+
 function isAnimePage(): boolean {
     return document.querySelector(".page-content .media.media-anime") !== null;
+}
+
+function isOverviewTab(): boolean {
+    return /^\/anime\/\d+(\/[^/]*)?\/??$/.test(window.location.pathname);
 }
 
 // Orchestrates panel injection
@@ -27,8 +35,8 @@ async function tryInject(): Promise<void> {
     const id = getAnilistId();
     const isAnime = isAnimePage();
 
-    // 1. If not an anime page or no ID, clean up everything
-    if (!isAnime || !id) {
+    // 1. If not an anime overview tab or no ID, clean up everything
+    if (!isAnime || !id || !isOverviewTab()) {
         document.querySelectorAll(`#${SEADEX_PANEL_ID}, #${NYAA_PANEL_ID}`).forEach((node) => node.remove());
         return;
     }
