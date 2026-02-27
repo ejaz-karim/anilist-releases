@@ -218,7 +218,13 @@ function createLinkifiedText(text: string): (string | Node)[] {
 
         while ((match = REGEX.URL.exec(line)) !== null) {
             if (match.index > lastIndex) {
-                nodes.push(line.slice(lastIndex, match.index));
+                const between = line.slice(lastIndex, match.index);
+                // Break line between consecutive URLs separated only by commas/whitespace
+                if (/^[\s,]+$/.test(between) && nodes.length > 0 && nodes[nodes.length - 1] instanceof Node) {
+                    nodes.push(make("br"));
+                } else {
+                    nodes.push(between);
+                }
             }
             nodes.push(make("a", {
                 href: match[0],
