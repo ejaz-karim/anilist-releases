@@ -3,7 +3,7 @@
     "build": "bun build src/index.ts src/background.ts --outdir dist"
   },
   "devDependencies": {
-    "@types/webextension-polyfill": "^0.12.4"
+    "@types/webextension-polyfill": "^0.12.5"
   },
   "dependencies": {
     "webextension-polyfill": "^0.12.0"
