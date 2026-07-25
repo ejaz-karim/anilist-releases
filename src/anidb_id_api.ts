@@ -26,6 +26,9 @@ export class AnidbIdApi {
         "https://zenshin-supabase-api.onrender.com/mappings",
     ];
 
+    private static readonly ANIMETOSHO_BASE = "https://feed.animetosho.xyz";
+    private static readonly PAGE_LIMIT = 100;
+
     async getAnidbId(anilistId: number): Promise<AnidbIdResult | null> {
         for (const baseUrl of AnidbIdApi.API_URLS) {
             try {
@@ -61,39 +64,58 @@ export class AnidbIdApi {
 
         let url: string;
         if (anidbId) {
-            url = `https://feed.animetosho.org/json?aid=${anidbId}`;
+            url = `${AnidbIdApi.ANIMETOSHO_BASE}/json/v1/series/anidb/${anidbId}`;
         } else {
-            url = `https://feed.animetosho.org/json?eid=${anidbEpisodeId}`;
+            url = `${AnidbIdApi.ANIMETOSHO_BASE}/json/v1/episodes/${anidbEpisodeId}`;
         }
-
-        const response = await fetch(url, { signal: abortSignal });
-        if (!response.ok) {
-            throw new Error(`HTTP error! Status: ${response.status}`);
-        }
-        const data = await response.json();
 
         const scraper = new NyaaScraper();
+        let offset = 0;
 
-        for (const entry of data) {
+        // Paginate
+        while (true) {
             if (abortSignal?.aborted) {
                 return;
             }
 
-            const infoHash = entry.info_hash;
-            if (infoHash === null || infoHash === undefined) {
-                continue;
+            const response = await fetch(
+                `${url}?limit=${AnidbIdApi.PAGE_LIMIT}&offset=${offset}`,
+                { signal: abortSignal }
+            );
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            const data = await response.json();
+
+            const releases = data?.data?.releases ?? [];
+            const meta = data?.meta ?? { count: 0, limit: AnidbIdApi.PAGE_LIMIT, offset, total: 0 };
+
+            for (const entry of releases) {
+                if (abortSignal?.aborted) {
+                    return;
+                }
+
+                const infoHash = entry.info_hash;
+                if (infoHash === null || infoHash === undefined) {
+                    continue;
+                }
+
+                const nyaaUrl = `https://nyaa.si/?q=${infoHash}`;
+                const nyaaMetadata = await scraper.getMetadata(nyaaUrl);
+
+                if (nyaaMetadata === null) {
+                    continue;
+                }
+
+                if (parseInt(nyaaMetadata.seeders || "0") > 0) {
+                    nyaaMetadata.url = nyaaUrl;
+                    yield nyaaMetadata;
+                }
             }
 
-            const nyaaUrl = `https://nyaa.si/?q=${infoHash}`;
-            const nyaaMetadata = await scraper.getMetadata(nyaaUrl);
-
-            if (nyaaMetadata === null) {
-                continue;
-            }
-
-            if (parseInt(nyaaMetadata.seeders || "0") > 0) {
-                nyaaMetadata.url = nyaaUrl;
-                yield nyaaMetadata;
+            offset += meta.count ?? 0;
+            if (meta.count === 0 || offset >= (meta.total ?? 0)) {
+                return;
             }
         }
     }
