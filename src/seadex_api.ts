@@ -101,6 +101,6 @@ export class SeadexApi {
         const i = Math.floor(Math.log(bytes) / Math.log(1024));
         // Clamp to max unit
         const index = Math.min(i, units.length - 1);
-        return `${(bytes / (1024 ** index)).toFixed(1)} ${units[index]}`;
+        return `${(bytes / (1024 ** index)).toFixed(2)} ${units[index]}`;
     }
 }

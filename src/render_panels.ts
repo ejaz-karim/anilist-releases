@@ -85,6 +85,7 @@ interface NyaaState {
     cachedAnilistId: number | null;
     filterText: string;
     filterMode: FilterMode;
+    useCache: boolean;
 }
 
 // State
@@ -98,6 +99,7 @@ const nyaaState: NyaaState = {
     cachedAnilistId: null,
     filterText: "",
     filterMode: "include",
+    useCache: true,
 };
 
 const fileSizeCache = new Map<string, number>();
@@ -429,7 +431,7 @@ function createSeadexCard(release: ReleaseEntry): HTMLElement {
     }, [
         make("span", {
             style: "font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 0; max-width: 80%;",
-            text: releaseGroup ?? "Unknown Group",
+            text: releaseGroup ?? "N/A",
             title: releaseGroup,
         }),
     ]);
@@ -507,7 +509,7 @@ function createSeadexCard(release: ReleaseEntry): HTMLElement {
     if (episodeList?.length) {
         details.append(
             createList(episodeList.map(({ name, size }) =>
-                createListItem(`📄 ${name ?? "Unknown Episode"}`, size ?? "", { bold: false, hangingIndent: true }),
+                createListItem(`📄 ${name ?? "N/A Episode"}`, size ?? "", { bold: false, hangingIndent: true }),
             )),
         );
     }
@@ -615,6 +617,22 @@ export async function renderNyaaPanel(anilistId: number): Promise<void> {
     ]);
 
     // Filter controls
+    // Cached toggle
+    const cachedToggleInput = make("input", {
+        type: "checkbox",
+        id: "nyaa-cached-toggle",
+        checked: nyaaState.useCache as unknown,
+        style: "cursor: pointer;",
+    });
+    const cachedToggleLabel = make("label", {
+        htmlFor: "nyaa-cached-toggle",
+        title: "Warning: Cached data has inaccurate Seeders/Leechers/Completed counts",
+        style: "display: inline-flex; align-items: center; gap: 0.35rem; cursor: pointer; font-size: 0.9em; white-space: nowrap;",
+    }, [cachedToggleInput, "Use Cached results"]);
+    cachedToggleInput.addEventListener("change", () => {
+        nyaaState.useCache = cachedToggleInput.checked;
+    });
+
     const filterInput = make("input", {
         type: "text",
         placeholder: "Filter...",
@@ -687,7 +705,7 @@ export async function renderNyaaPanel(anilistId: number): Promise<void> {
             dropdownRow,
             make("div", { className: "nyaa-panel-row" }, [
                 sortGroup,
-                make("div", { className: "nyaa-filter-group" }, [filterInput, filterToggleBtn]),
+                make("div", { className: "nyaa-filter-group" }, [cachedToggleLabel, filterInput, filterToggleBtn]),
             ]),
             resultsArea,
         ]),
@@ -782,9 +800,9 @@ async function handleNyaaSearchStreaming(anilistId: number): Promise<void> {
         if (isFull) {
             const mapping = await api.getAnidbId(anilistId);
             if (!mapping) throw new Error("No AniDB mapping found");
-            generator = api.streamAnimetoshoMetadata(mapping.anidb_id, null, currentController.signal);
+            generator = api.streamAnimetoshoMetadata(mapping.anidb_id, null, currentController.signal, nyaaState.useCache);
         } else {
-            generator = api.streamNyaaAnidbEpisodeMetadata(anilistId, selectedEpisode!, currentController.signal);
+            generator = api.streamEpisodeMetadata(anilistId, selectedEpisode!, currentController.signal, nyaaState.useCache);
         }
 
         // Throttled status updater
@@ -892,7 +910,7 @@ async function loadEpisodeData(anilistId: number): Promise<Episode[]> {
 // Nyaa Card Rendering
 
 function createNyaaCard(release: NyaaMetadataEnhanced, index: number): HTMLElement {
-    const title = release.releaseName ?? "Unknown Release";
+    const title = release.releaseName || (release.cached ? "N/A (Cached)" : "N/A");
     const seeders = `${release.seeders ?? "0"} Seeders`;
 
     const actions = make("div", {
@@ -962,15 +980,17 @@ function hydrateNyaaCard(card: HTMLElement, release: NyaaMetadataEnhanced): void
     const details = card.querySelector(".card-details") as HTMLElement;
     if (details.dataset.hydrated === "true") return;
 
+    const naLabel = release.cached ? "N/A (Cached)" : "N/A";
+
     details.replaceChildren(
         make("div", {
             style: "font-weight: 600; margin-bottom: 0.75rem; word-break: break-word;",
-            text: release.releaseName ?? "Unknown",
+            text: release.releaseName || naLabel,
         }),
         createList([
             createDetailRow([
-                createListItem("Category:", release.category ?? "Unknown", { aligned: false }),
-                createListItem("Date:", release.date ?? "Unknown", { aligned: false }),
+                createListItem("Category:", release.category || naLabel, { aligned: false }),
+                createListItem("Date:", release.date || naLabel, { aligned: false }),
             ]),
             createDetailRow([
                 createListItem("Seeders:", release.seeders ?? "0", { valueColour: COLOURS.GREEN, aligned: false }),
@@ -978,28 +998,36 @@ function hydrateNyaaCard(card: HTMLElement, release: NyaaMetadataEnhanced): void
                 createListItem("Completed:", release.completed ?? "0", { aligned: false }),
             ]),
             createDetailRow([
-                createListItem("Submitter:", release.submitter ?? "Unknown", { aligned: false }),
-                createListItem("Size:", release.fileSize ?? "Unknown", { aligned: false }),
+                createListItem("Submitter:", release.submitter || naLabel, { aligned: false }),
+                createListItem("Size:", release.fileSize || naLabel, { aligned: false }),
             ]),
         ]),
     );
 
+    // Files toggle — always rendered. Shows tree for nyaa-scraped entries,
+    // or "N/A (Cached)" placeholder for cached entries (or empty files).
+    const treeContainer = make("div", { style: "display: none; margin-top: 0.5rem;" });
     if (release.files?.length) {
-        const treeContainer = make("div", { style: "display: none; margin-top: 0.5rem;" }, [renderFileTree(release.files)]);
-        const toggle = make("button", {
-            text: "Files",
-            style: `background: ${COLOURS.BLUE_PRIMARY}; color: white; border: none; border-radius: 4px; padding: 0.25rem 0; font-size: 0.9em; cursor: pointer; text-align: center; font-weight: 500; width: 35px;`,
-            events: {
-                click: ((ev: Event) => {
-                    ev.stopPropagation();
-                    const hidden = treeContainer.style.display === "none";
-                    treeContainer.style.display = hidden ? "block" : "none";
-                    toggle.textContent = hidden ? "Hide" : "Files";
-                }) as EventListener,
-            },
-        });
-        details.append(make("div", { style: "margin-top: 0.75rem;" }, [toggle, treeContainer]));
+        treeContainer.append(renderFileTree(release.files));
+    } else {
+        treeContainer.append(make("p", {
+            style: `color: ${COLOURS.BORDER_CONTROL}; font-style: italic; margin: 0;`,
+            text: release.cached ? "N/A (Cached)" : "No file data available.",
+        }));
     }
+    const toggle = make("button", {
+        text: "Files",
+        style: `background: ${COLOURS.BLUE_PRIMARY}; color: white; border: none; border-radius: 4px; padding: 0.25rem 0; font-size: 0.9em; cursor: pointer; text-align: center; font-weight: 500; width: 35px;`,
+        events: {
+            click: ((ev: Event) => {
+                ev.stopPropagation();
+                const hidden = treeContainer.style.display === "none";
+                treeContainer.style.display = hidden ? "block" : "none";
+                toggle.textContent = hidden ? "Hide" : "Files";
+            }) as EventListener,
+        },
+    });
+    details.append(make("div", { style: "margin-top: 0.75rem;" }, [toggle, treeContainer]));
 
     details.dataset.hydrated = "true";
 }

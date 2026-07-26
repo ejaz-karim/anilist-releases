@@ -1,4 +1,5 @@
 import { NyaaScraper, NyaaMetadata } from "./nyaa_scraper";
+import { SeadexApi } from "./seadex_api";
 
 export interface Episode {
     episode: string;
@@ -20,6 +21,15 @@ function parseEpisodes(episodesData: Record<string, { episode: string; anidbEid:
     }));
 }
 
+// Convert animetosho ISO 8601 date (already UTC) to nyaa display format "YYYY-MM-DD HH:mm UTC"
+function formatCachedDate(iso: string | null | undefined): string {
+    if (!iso) return "";
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return "";
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())} UTC`;
+}
+
 export class AnidbIdApi {
     private static readonly API_URLS = [
         "https://api.ani.zip/mappings",
@@ -28,6 +38,7 @@ export class AnidbIdApi {
 
     private static readonly ANIMETOSHO_BASE = "https://feed.animetosho.xyz";
     private static readonly PAGE_LIMIT = 100;
+    private static readonly seadex = new SeadexApi();
 
     async getAnidbId(anilistId: number): Promise<AnidbIdResult | null> {
         for (const baseUrl of AnidbIdApi.API_URLS) {
@@ -53,7 +64,8 @@ export class AnidbIdApi {
     async *streamAnimetoshoMetadata(
         anidbId: string | null = null,
         anidbEpisodeId: string | null = null,
-        abortSignal?: AbortSignal
+        abortSignal?: AbortSignal,
+        useCache: boolean = false,
     ): AsyncGenerator<NyaaMetadata, void, unknown> {
         if (!anidbId && !anidbEpisodeId) {
             throw new Error("Missing anidb id or anidb episode id");
@@ -95,21 +107,28 @@ export class AnidbIdApi {
                     return;
                 }
 
-                const infoHash = entry.info_hash;
-                if (infoHash === null || infoHash === undefined) {
-                    continue;
-                }
+                if (useCache) {
+                    const metadata = AnidbIdApi.buildCachedMetadata(entry);
+                    if (metadata === null) continue;
+                    if (parseInt(metadata.seeders || "0") <= 0) continue;
+                    yield metadata;
+                } else {
+                    const infoHash = entry.info_hash;
+                    if (infoHash === null || infoHash === undefined) {
+                        continue;
+                    }
 
-                const nyaaUrl = `https://nyaa.si/?q=${infoHash}`;
-                const nyaaMetadata = await scraper.getMetadata(nyaaUrl);
+                    const nyaaUrl = `https://nyaa.si/?q=${infoHash}`;
+                    const nyaaMetadata = await scraper.getMetadata(nyaaUrl);
 
-                if (nyaaMetadata === null) {
-                    continue;
-                }
+                    if (nyaaMetadata === null) {
+                        continue;
+                    }
 
-                if (parseInt(nyaaMetadata.seeders || "0") > 0) {
-                    nyaaMetadata.url = nyaaUrl;
-                    yield nyaaMetadata;
+                    if (parseInt(nyaaMetadata.seeders || "0") > 0) {
+                        nyaaMetadata.url = nyaaUrl;
+                        yield nyaaMetadata;
+                    }
                 }
             }
 
@@ -120,10 +139,47 @@ export class AnidbIdApi {
         }
     }
 
-    async *streamNyaaAnidbEpisodeMetadata(
+    /**
+     * Build a NyaaMetadata object from an animetosho release entry (cached mode).
+     * Source-agnostic: works for nyaa, nekobt, tokyotosho, and any future source.
+     * Returns null if critical fields (info_hash, magnet, urls.source) are missing.
+     */
+    private static buildCachedMetadata(entry: any): NyaaMetadata | null {
+        const infoHash = entry?.info_hash;
+        const magnet = entry?.magnet;
+        const sourceUrl = entry?.urls?.source;
+
+        // Critical fields — skip release if any missing
+        if (!infoHash || !magnet || !sourceUrl) {
+            return null;
+        }
+
+        const sizeBytes = entry.size_bytes ?? 0;
+        const seeders = entry.seeders ?? 0;
+        const leechers = entry.leechers ?? 0;
+        const downloads = entry.downloads ?? 0;
+
+        return {
+            releaseName: entry.title || "N/A (Cached)",
+            magnet: magnet,
+            url: sourceUrl,
+            category: "N/A (Cached)",
+            date: formatCachedDate(entry.date_added) || "N/A (Cached)",
+            submitter: entry.release_group || "N/A (Cached)",
+            seeders: String(seeders),
+            leechers: String(leechers),
+            fileSize: AnidbIdApi.seadex.formatFileSize(sizeBytes) || "N/A (Cached)",
+            completed: String(downloads),
+            files: [],
+            cached: true,
+        };
+    }
+
+    async *streamEpisodeMetadata(
         anilistId: number,
         episode: number | string,
-        abortSignal?: AbortSignal
+        abortSignal?: AbortSignal,
+        useCache: boolean = false,
     ): AsyncGenerator<NyaaMetadata, void, unknown> {
         const dict = await this.getAnidbId(anilistId);
         if (!dict) {
@@ -133,7 +189,7 @@ export class AnidbIdApi {
         for (const i of dict.episodes) {
             if (i.episode === String(episode)) {
                 const anidbEpisodeId = i.anidb_episode_id;
-                yield* this.streamAnimetoshoMetadata(null, anidbEpisodeId, abortSignal);
+                yield* this.streamAnimetoshoMetadata(null, anidbEpisodeId, abortSignal, useCache);
                 return;
             }
         }

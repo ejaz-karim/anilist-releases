@@ -26,6 +26,7 @@ export interface NyaaMetadata {
     fileSize?: string;
     completed?: string;
     files: NyaaFileEntry[];
+    cached?: boolean;
 }
 
 interface FetchResponse {
