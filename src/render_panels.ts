@@ -861,7 +861,7 @@ async function handleNyaaSearchStreaming(anilistId: number): Promise<void> {
             const count = nyaaState.results.length;
             const el = document.getElementById("nyaa-search-status");
             if (el) {
-                el.textContent = count === 0 ? "No releases found with active seeders" : `Search complete. Found ${count} sources`;
+                el.textContent = count === 0 ? "No releases found with active seeders (Try turning off Cached results)" : `Search complete. Found ${count} sources`;
                 el.style.color = COLOURS.BLUE_PRIMARY;
             }
         }
