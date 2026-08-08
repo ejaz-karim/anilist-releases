@@ -86,6 +86,7 @@ interface NyaaState {
     filterText: string;
     filterMode: FilterMode;
     useCache: boolean;
+    onlyFullReleases: boolean;
 }
 
 // State
@@ -100,6 +101,7 @@ const nyaaState: NyaaState = {
     filterText: "",
     filterMode: "include",
     useCache: true,
+    onlyFullReleases: true,
 };
 
 const fileSizeCache = new Map<string, number>();
@@ -627,11 +629,34 @@ export async function renderNyaaPanel(anilistId: number): Promise<void> {
     const cachedToggleLabel = make("label", {
         htmlFor: "nyaa-cached-toggle",
         title: "Warning: Cached data has inaccurate Seeders/Leechers/Completed counts",
-        style: "display: inline-flex; align-items: center; gap: 0.35rem; cursor: pointer; font-size: 0.9em; white-space: nowrap;",
+        style: "display: inline-flex; align-items: center; gap: 0.35rem; cursor: pointer; font-size: 0.9em; white-space: nowrap; margin-right: 0.75rem;",
     }, [cachedToggleInput, "Use Cached results"]);
     cachedToggleInput.addEventListener("change", () => {
         nyaaState.useCache = cachedToggleInput.checked;
     });
+
+    // Full releases only toggle (only relevant for full-release searches)
+    const fullOnlyToggleInput = make("input", {
+        type: "checkbox",
+        id: "nyaa-full-only-toggle",
+        checked: nyaaState.onlyFullReleases as unknown,
+        style: "cursor: pointer;",
+    });
+    const fullOnlyToggleLabel = make("label", {
+        htmlFor: "nyaa-full-only-toggle",
+        title: "Disable to see all results",
+        style: "display: inline-flex; align-items: center; gap: 0.35rem; cursor: pointer; font-size: 0.9em; white-space: nowrap; margin-right: 0.75rem;",
+    }, [fullOnlyToggleInput, "Show Full Releases only"]);
+    fullOnlyToggleInput.addEventListener("change", () => {
+        nyaaState.onlyFullReleases = fullOnlyToggleInput.checked;
+    });
+
+    const updateFullOnlyToggleVisibility = () => {
+        fullOnlyToggleLabel.style.display = fullRelease.input.checked ? "inline-flex" : "none";
+    };
+    fullRelease.input.addEventListener("change", updateFullOnlyToggleVisibility);
+    epRelease.input.addEventListener("change", updateFullOnlyToggleVisibility);
+    updateFullOnlyToggleVisibility();
 
     const filterInput = make("input", {
         type: "text",
@@ -705,7 +730,7 @@ export async function renderNyaaPanel(anilistId: number): Promise<void> {
             dropdownRow,
             make("div", { className: "nyaa-panel-row" }, [
                 sortGroup,
-                make("div", { className: "nyaa-filter-group" }, [cachedToggleLabel, filterInput, filterToggleBtn]),
+                make("div", { className: "nyaa-filter-group" }, [fullOnlyToggleLabel, cachedToggleLabel, filterInput, filterToggleBtn]),
             ]),
             resultsArea,
         ]),
@@ -800,7 +825,7 @@ async function handleNyaaSearchStreaming(anilistId: number): Promise<void> {
         if (isFull) {
             const mapping = await api.getAnidbId(anilistId);
             if (!mapping) throw new Error("No AniDB mapping found");
-            generator = api.streamAnimetoshoMetadata(mapping.anidb_id, null, currentController.signal, nyaaState.useCache);
+            generator = api.streamAnimetoshoMetadata(mapping.anidb_id, null, currentController.signal, nyaaState.useCache, nyaaState.onlyFullReleases);
         } else {
             generator = api.streamEpisodeMetadata(anilistId, selectedEpisode!, currentController.signal, nyaaState.useCache);
         }
@@ -847,8 +872,11 @@ async function handleNyaaSearchStreaming(anilistId: number): Promise<void> {
                 resultsList.insertBefore(card, resultsList.children[pos]);
             }
 
-            // Apply active filter
-            applyFilter();
+            // Apply active filter (only when a filter is set — otherwise the
+            // new card is already visible and re-scanning all results is wasted work)
+            if (nyaaState.filterText.trim()) {
+                applyFilter();
+            }
 
             if (!currentController.signal.aborted) {
                 updateStatus(`Searching Nyaa... Found ${nyaaState.results.length} sources`);
@@ -861,7 +889,7 @@ async function handleNyaaSearchStreaming(anilistId: number): Promise<void> {
             const count = nyaaState.results.length;
             const el = document.getElementById("nyaa-search-status");
             if (el) {
-                el.textContent = count === 0 ? "No releases found with active seeders (Try turning off Cached results)" : `Search complete. Found ${count} sources`;
+                el.textContent = count === 0 ? "No releases with active seeders found. Try disabling [Show Full Releases only / Use Cached results], or use Episode Releases" : `Search complete. Found ${count} sources`;
                 el.style.color = COLOURS.BLUE_PRIMARY;
             }
         }
