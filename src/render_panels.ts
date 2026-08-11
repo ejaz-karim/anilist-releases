@@ -661,6 +661,7 @@ export async function renderNyaaPanel(anilistId: number): Promise<void> {
     const filterInput = make("input", {
         type: "text",
         placeholder: "Filter...",
+        value: nyaaState.filterText,
         style: `${STYLES.CONTROL} min-width: 180px; flex-grow: 1;`,
         events: {
             input: ((e: Event) => {
@@ -672,8 +673,8 @@ export async function renderNyaaPanel(anilistId: number): Promise<void> {
 
     const filterToggleBtn = make("button", {
         title: "Toggle Filter Mode",
-        text: "Include",
-        style: `padding: 0.35rem 0.5rem; border: none; border-radius: 4px; color: white; cursor: pointer; font-size: 0.9em; min-width: 80px; text-align: center; background: ${COLOURS.BLUE_PRIMARY};`,
+        text: nyaaState.filterMode === "include" ? "Include" : "Exclude",
+        style: `padding: 0.35rem 0.5rem; border: none; border-radius: 4px; color: white; cursor: pointer; font-size: 0.9em; min-width: 80px; text-align: center; background: ${nyaaState.filterMode === "include" ? COLOURS.BLUE_PRIMARY : COLOURS.RED};`,
         events: {
             click: (() => {
                 nyaaState.filterMode = nyaaState.filterMode === "include" ? "exclude" : "include";
