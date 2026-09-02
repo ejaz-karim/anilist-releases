@@ -17,6 +17,9 @@ const injectionState = {
     contentObserver: null as MutationObserver | null,
 };
 
+
+const noSeadexIds = new Set<number>();
+
 function getAnilistId(): number | null {
     const match = window.location.pathname.match(/anime\/(\d+)/);
     return match ? parseInt(match[1], 10) : null;
@@ -49,12 +52,14 @@ async function tryInject(): Promise<void> {
     if (nyaaPanel && nyaaPanel.dataset.anilistId !== String(id)) nyaaPanel.remove();
 
     // 3. Ensure Seadex Panel
-    if (!document.getElementById(SEADEX_PANEL_ID) && injectionState.inFlightId !== id) {
+    if (!document.getElementById(SEADEX_PANEL_ID) && !noSeadexIds.has(id) && injectionState.inFlightId !== id) {
         injectionState.inFlightId = id;
         try {
             const data = await seadexApi.getReleaseData(id);
             if (data) {
                 renderSeadexPanel(data, id);
+            } else {
+                noSeadexIds.add(id);
             }
         } catch (err) {
             console.error("Failed to inject Seadex releases:", err);
