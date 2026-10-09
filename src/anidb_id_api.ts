@@ -36,7 +36,7 @@ export class AnidbIdApi {
         "https://zenshin-supabase-api.onrender.com/mappings",
     ];
 
-    private static readonly ANIMETOSHO_BASE = "https://feed.animetosho.xyz";
+    private static readonly ANIMETOSHO_BASE = "https://feed.animetosho.net";
     private static readonly PAGE_LIMIT = 200;
     private static readonly seadex = new SeadexApi();
 
