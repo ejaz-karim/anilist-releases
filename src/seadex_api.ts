@@ -24,7 +24,7 @@ export interface ReleaseData {
 
 export class SeadexApi {
     async getReleaseData(anilistId: number): Promise<ReleaseData | null> {
-        const baseUrl = "https://releases.moe/api/collections/entries/records";
+        const baseUrl = "https://seadex.moe/api/collections/entries/records";
         const trsUrl = `${baseUrl}?filter=alID=${anilistId}&expand=trs`;
 
         const response = await fetch(trsUrl);
